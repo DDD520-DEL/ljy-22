@@ -20,6 +20,7 @@ import {
   getDaysBetween,
   getToday,
 } from '@/utils/dateUtils';
+import { GrowthSummaryCard } from '@/components/GrowthSummaryCard';
 
 const quickLinks = [
   { path: '/vaccine-schedule', icon: Syringe, label: '疫苗接种', color: 'from-mint-400 to-mint-500', emoji: '💉' },
@@ -158,6 +159,44 @@ export default function Dashboard() {
               </span>
             </div>
           </div>
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-semibold text-lg text-slate-800 flex items-center gap-2">
+            <span className="text-2xl">📈</span>
+            成长发育概览
+          </h3>
+          <Link to="/records" className="text-coral-500 text-sm font-medium flex items-center hover:text-coral-600">
+            查看成长曲线 <ChevronRight className="w-4 h-4" />
+          </Link>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <GrowthSummaryCard
+            child={child}
+            checkupRecords={checkupRecords}
+            metric="weight"
+            label="体重"
+            icon="⚖️"
+            color="bg-gradient-to-br from-blue-100 to-blue-200"
+          />
+          <GrowthSummaryCard
+            child={child}
+            checkupRecords={checkupRecords}
+            metric="height"
+            label="身高"
+            icon="📏"
+            color="bg-gradient-to-br from-mint-100 to-mint-200"
+          />
+          <GrowthSummaryCard
+            child={child}
+            checkupRecords={checkupRecords}
+            metric="headCircumference"
+            label="头围"
+            icon="🧠"
+            color="bg-gradient-to-br from-purple-100 to-purple-200"
+          />
         </div>
       </div>
 

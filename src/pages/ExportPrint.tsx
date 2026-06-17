@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Printer,
@@ -7,16 +7,18 @@ import {
   GraduationCap,
   Baby,
   CheckCircle2,
-  X,
   ChevronDown,
   ChevronUp,
   ClipboardList,
+  TrendingUp,
 } from 'lucide-react';
 import { useAppStore } from '@/store';
 import {
   formatDate,
   formatMonthAge,
 } from '@/utils/dateUtils';
+import GrowthChart from '@/components/GrowthChart';
+import { calculatePercentileRank, getGrowthData, getGrowthStatus } from '@/data/growthStandards';
 
 type TemplateType = 'nursery' | 'school' | 'full';
 
@@ -44,32 +46,17 @@ export default function ExportPrintPage() {
     child,
     vaccineSchedules,
     vaccineRecords,
-    checkupSchedules,
     checkupRecords,
   } = useAppStore();
 
   const [template, setTemplate] = useState<TemplateType>('nursery');
   const [showPreview, setShowPreview] = useState(true);
+  const [includeGrowth, setIncludeGrowth] = useState(true);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     vaccine: true,
     checkup: true,
+    growth: true,
   });
-
-  if (!child) {
-    return (
-      <div className="card text-center py-16 animate-fade-in-up">
-        <Baby className="w-16 h-16 mx-auto text-mint-400 mb-4" />
-        <h2 className="text-2xl font-display text-slate-700 mb-2">请先录入宝宝信息</h2>
-        <p className="text-slate-500 mb-6">录入宝宝出生日期后，即可生成和导出接种与体检记录</p>
-        <button
-          className="btn-primary"
-          onClick={() => navigate('/child-info')}
-        >
-          去录入宝宝信息
-        </button>
-      </div>
-    );
-  }
 
   const filterRecordsByTemplate = () => {
     let filteredVaccineRecords = [...vaccineRecords];
@@ -116,33 +103,90 @@ export default function ExportPrintPage() {
     });
   };
 
+  const { filteredVaccineRecords, filteredCheckupRecords } = filterRecordsByTemplate();
+  const pendingVaccines = getPendingVaccines();
+
+  const maxGrowthMonthAge = template === 'nursery' ? 36 : template === 'school' ? 84 : 84;
+
+  const growthDataPoints = useMemo(() => {
+    const weight: { monthAge: number; value: number }[] = [];
+    const height: { monthAge: number; value: number }[] = [];
+    const headCircumference: { monthAge: number; value: number }[] = [];
+
+    for (const record of filteredCheckupRecords) {
+      if (record.weight !== undefined) {
+        weight.push({ monthAge: record.monthAge, value: record.weight });
+      }
+      if (record.height !== undefined) {
+        height.push({ monthAge: record.monthAge, value: record.height });
+      }
+      if (record.headCircumference !== undefined) {
+        headCircumference.push({ monthAge: record.monthAge, value: record.headCircumference });
+      }
+    }
+
+    return {
+      weight: weight.sort((a, b) => a.monthAge - b.monthAge),
+      height: height.sort((a, b) => a.monthAge - b.monthAge),
+      headCircumference: headCircumference.sort((a, b) => a.monthAge - b.monthAge),
+    };
+  }, [filteredCheckupRecords]);
+
+  const hasGrowthData =
+    growthDataPoints.weight.length > 0 ||
+    growthDataPoints.height.length > 0 ||
+    growthDataPoints.headCircumference.length > 0;
+
+  const toggleSection = (section: string) => {
+    setExpandedSections((prev) => ({ ...prev, [section]: !prev[section] }));
+  };
+
   const handlePrint = () => {
     window.print();
   };
 
   const handleExportJSON = () => {
-    const exportData = {
+    const exportData: Record<string, unknown> = {
       child,
       exportedAt: new Date().toISOString(),
       template,
-      vaccineRecords: filterRecordsByTemplate().filteredVaccineRecords,
-      checkupRecords: filterRecordsByTemplate().filteredCheckupRecords,
+      vaccineRecords: filteredVaccineRecords,
+      checkupRecords: filteredCheckupRecords,
     };
+
+    if (includeGrowth && hasGrowthData) {
+      exportData.growthReport = {
+        weight: growthDataPoints.weight,
+        height: growthDataPoints.height,
+        headCircumference: growthDataPoints.headCircumference,
+        standard: 'WHO Child Growth Standards',
+      };
+    }
+
     const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${child.name}_${templateInfo[template].name}_接种记录_${formatDate(new Date())}.json`;
+    a.download = `${child?.name || '宝宝'}_${templateInfo[template].name}_接种记录_${formatDate(new Date())}.json`;
     a.click();
     URL.revokeObjectURL(url);
   };
 
-  const { filteredVaccineRecords, filteredCheckupRecords } = filterRecordsByTemplate();
-  const pendingVaccines = getPendingVaccines();
-
-  const toggleSection = (section: string) => {
-    setExpandedSections((prev) => ({ ...prev, [section]: !prev[section] }));
-  };
+  if (!child) {
+    return (
+      <div className="card text-center py-16 animate-fade-in-up">
+        <Baby className="w-16 h-16 mx-auto text-mint-400 mb-4" />
+        <h2 className="text-2xl font-display text-slate-700 mb-2">请先录入宝宝信息</h2>
+        <p className="text-slate-500 mb-6">录入宝宝出生日期后，即可生成和导出接种与体检记录</p>
+        <button
+          className="btn-primary"
+          onClick={() => navigate('/child-info')}
+        >
+          去录入宝宝信息
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fade-in-up">
@@ -232,7 +276,7 @@ export default function ExportPrintPage() {
       </div>
 
       <div className="no-print">
-        <div className="flex flex-col sm:flex-row gap-4">
+        <div className="flex flex-col sm:flex-row gap-4 flex-wrap">
           <button
             className="btn-primary flex items-center justify-center gap-2 flex-1 sm:flex-none"
             onClick={() => setShowPreview(!showPreview)}
@@ -253,6 +297,17 @@ export default function ExportPrintPage() {
           >
             <Download className="w-5 h-5" />
             导出 JSON
+          </button>
+          <button
+            className={`flex items-center justify-center gap-2 flex-1 sm:flex-none px-5 py-2.5 rounded-xl font-medium transition-all ${
+              includeGrowth
+                ? 'bg-gradient-to-r from-blue-400 to-blue-500 text-white shadow-soft'
+                : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+            }`}
+            onClick={() => setIncludeGrowth(!includeGrowth)}
+          >
+            <TrendingUp className="w-5 h-5" />
+            {includeGrowth ? '✓ 含成长曲线' : '含成长曲线'}
           </button>
         </div>
       </div>
@@ -330,7 +385,7 @@ export default function ExportPrintPage() {
                 疫苗接种记录
               </h2>
 
-              {(expandedSections.vaccine || true) && (
+              {(expandedSections.vaccine) && (
                 <>
                   {filteredVaccineRecords.length === 0 ? (
                     <div className="text-center py-8 text-slate-400">暂无接种记录</div>
@@ -433,7 +488,7 @@ export default function ExportPrintPage() {
                 儿保体检记录
               </h2>
 
-              {(expandedSections.checkup || true) && (
+              {(expandedSections.checkup) && (
                 <>
                   {filteredCheckupRecords.length === 0 ? (
                     <div className="text-center py-8 text-slate-400">暂无体检记录</div>
@@ -488,6 +543,156 @@ export default function ExportPrintPage() {
                 </>
               )}
             </div>
+
+            {includeGrowth && hasGrowthData && (
+              <div className="mb-10 page-break-before">
+                <div
+                  className="no-print flex items-center justify-between mb-4 cursor-pointer"
+                  onClick={() => toggleSection('growth')}
+                >
+                  <h2 className="text-xl font-bold text-slate-700 flex items-center gap-2">
+                    <span className="w-1 h-6 bg-purple-400 rounded-full"></span>
+                    成长发育曲线图
+                  </h2>
+                  {expandedSections.growth ? (
+                    <ChevronUp className="w-5 h-5 text-slate-400" />
+                  ) : (
+                    <ChevronDown className="w-5 h-5 text-slate-400" />
+                  )}
+                </div>
+                <h2 className="print-only text-xl font-bold text-slate-700 mb-4 flex items-center gap-2">
+                  <span className="w-1 h-6 bg-purple-400 rounded-full"></span>
+                  成长发育曲线图
+                </h2>
+                <p className="text-xs text-slate-400 mb-4">基于世界卫生组织（WHO）儿童生长标准绘制</p>
+
+                {(expandedSections.growth) && (
+                  <div className="space-y-8">
+                    {growthDataPoints.weight.length > 0 && (
+                      <div className="border border-slate-200 rounded-xl p-4">
+                        <h3 className="font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                          <span>⚖️</span>
+                          体重生长曲线
+                        </h3>
+                        <GrowthChart
+                          metric="weight"
+                          gender={child.gender}
+                          dataPoints={growthDataPoints.weight}
+                          maxMonthAge={maxGrowthMonthAge}
+                          height={240}
+                          showLegend={true}
+                        />
+                      </div>
+                    )}
+
+                    {growthDataPoints.height.length > 0 && (
+                      <div className="border border-slate-200 rounded-xl p-4">
+                        <h3 className="font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                          <span>📏</span>
+                          身高生长曲线
+                        </h3>
+                        <GrowthChart
+                          metric="height"
+                          gender={child.gender}
+                          dataPoints={growthDataPoints.height}
+                          maxMonthAge={maxGrowthMonthAge}
+                          height={240}
+                          showLegend={true}
+                        />
+                      </div>
+                    )}
+
+                    {growthDataPoints.headCircumference.length > 0 && (
+                      <div className="border border-slate-200 rounded-xl p-4">
+                        <h3 className="font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                          <span>🧠</span>
+                          头围生长曲线
+                        </h3>
+                        <GrowthChart
+                          metric="headCircumference"
+                          gender={child.gender}
+                          dataPoints={growthDataPoints.headCircumference}
+                          maxMonthAge={Math.min(maxGrowthMonthAge, 60)}
+                          height={240}
+                          showLegend={true}
+                        />
+                      </div>
+                    )}
+
+                    {filteredCheckupRecords.length > 0 && (
+                      <div className="border border-slate-200 rounded-xl p-4">
+                        <h3 className="font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                          <span>📊</span>
+                          百分位评价汇总
+                        </h3>
+                        <div className="overflow-x-auto">
+                          <table className="w-full border-collapse text-sm">
+                            <thead>
+                              <tr className="bg-slate-50">
+                                <th className="border border-slate-200 px-3 py-2 text-left">月龄</th>
+                                <th className="border border-slate-200 px-3 py-2 text-center">体重(kg)</th>
+                                <th className="border border-slate-200 px-3 py-2 text-center">体重百分位</th>
+                                <th className="border border-slate-200 px-3 py-2 text-center">身高(cm)</th>
+                                <th className="border border-slate-200 px-3 py-2 text-center">身高百分位</th>
+                                <th className="border border-slate-200 px-3 py-2 text-center">头围(cm)</th>
+                                <th className="border border-slate-200 px-3 py-2 text-center">头围百分位</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {filteredCheckupRecords
+                                .filter((r) => r.weight !== undefined || r.height !== undefined || r.headCircumference !== undefined)
+                                .map((r, idx) => {
+                                  const wData = getGrowthData('weight', child.gender);
+                                  const hData = getGrowthData('height', child.gender);
+                                  const hcData = getGrowthData('headCircumference', child.gender);
+                                  
+                                  const wPct = r.weight !== undefined ? calculatePercentileRank(r.weight, r.monthAge, wData) : null;
+                                  const hPct = r.height !== undefined ? calculatePercentileRank(r.height, r.monthAge, hData) : null;
+                                  const hcPct = r.headCircumference !== undefined ? calculatePercentileRank(r.headCircumference, r.monthAge, hcData) : null;
+                                  
+                                  const wStatus = wPct !== null ? getGrowthStatus(wPct) : null;
+                                  const hStatus = hPct !== null ? getGrowthStatus(hPct) : null;
+                                  const hcStatus = hcPct !== null ? getGrowthStatus(hcPct) : null;
+
+                                  return (
+                                    <tr key={r.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
+                                      <td className="border border-slate-200 px-3 py-2">{formatMonthAge(r.monthAge)}</td>
+                                      <td className="border border-slate-200 px-3 py-2 text-center">{r.weight || '-'}</td>
+                                      <td className="border border-slate-200 px-3 py-2 text-center">
+                                        {wPct !== null ? (
+                                          <span className={wStatus!.color}>
+                                            P{wPct.toFixed(0)} {wStatus!.label}
+                                          </span>
+                                        ) : '-'}
+                                      </td>
+                                      <td className="border border-slate-200 px-3 py-2 text-center">{r.height || '-'}</td>
+                                      <td className="border border-slate-200 px-3 py-2 text-center">
+                                        {hPct !== null ? (
+                                          <span className={hStatus!.color}>
+                                            P{hPct.toFixed(0)} {hStatus!.label}
+                                          </span>
+                                        ) : '-'}
+                                      </td>
+                                      <td className="border border-slate-200 px-3 py-2 text-center">{r.headCircumference || '-'}</td>
+                                      <td className="border border-slate-200 px-3 py-2 text-center">
+                                        {hcPct !== null ? (
+                                          <span className={hcStatus!.color}>
+                                            P{hcPct.toFixed(0)} {hcStatus!.label}
+                                          </span>
+                                        ) : '-'}
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="mt-16 pt-8 border-t border-slate-200">
               <div className="grid grid-cols-2 gap-8">

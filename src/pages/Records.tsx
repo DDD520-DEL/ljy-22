@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   FileText,
@@ -11,6 +11,7 @@ import {
   CheckCircle,
   Eye,
   ChevronDown,
+  TrendingUp,
 } from 'lucide-react';
 import { useAppStore } from '@/store';
 import type { VaccineRecord, CheckupRecord } from '@/types';
@@ -18,8 +19,11 @@ import {
   formatDate,
   formatMonthAge,
 } from '@/utils/dateUtils';
+import GrowthChart from '@/components/GrowthChart';
+import type { GrowthMetric } from '@/data/growthStandards';
+import { calculatePercentileRank, getGrowthData, getGrowthStatus } from '@/data/growthStandards';
 
-type TabType = 'all' | 'vaccine' | 'checkup';
+type TabType = 'all' | 'vaccine' | 'checkup' | 'growth';
 type CombinedRecord = (VaccineRecord | CheckupRecord) & { recordType: 'vaccine' | 'checkup' };
 
 export default function RecordsPage() {
@@ -40,12 +44,29 @@ export default function RecordsPage() {
   const [search, setSearch] = useState('');
   const [viewingRecord, setViewingRecord] = useState<CombinedRecord | null>(null);
   const [editingRecord, setEditingRecord] = useState<CombinedRecord | null>(null);
-  const [editForm, setEditForm] = useState<any>({});
+  const [editForm, setEditForm] = useState<Partial<VaccineRecord & CheckupRecord & { recordType?: string }>>({});
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [growthMetric, setGrowthMetric] = useState<GrowthMetric>('weight');
+  const [growthMaxAge, setGrowthMaxAge] = useState<number>(84);
 
   useEffect(() => {
     if (!child) navigate('/child-info');
   }, [child, navigate]);
+
+  const growthDataPoints = useMemo(() => {
+    const points: { monthAge: number; value: number }[] = [];
+    for (const record of checkupRecords) {
+      let value: number | undefined;
+      if (growthMetric === 'weight') value = record.weight;
+      else if (growthMetric === 'height') value = record.height;
+      else value = record.headCircumference;
+      
+      if (value !== undefined) {
+        points.push({ monthAge: record.monthAge, value });
+      }
+    }
+    return points.sort((a, b) => a.monthAge - b.monthAge);
+  }, [checkupRecords, growthMetric]);
 
   if (!child) return null;
 
@@ -181,11 +202,12 @@ export default function RecordsPage() {
         </div>
       </div>
 
-      <div className="flex bg-white rounded-xl p-1 shadow-soft border border-slate-100 w-fit">
+      <div className="flex bg-white rounded-xl p-1 shadow-soft border border-slate-100 w-fit flex-wrap">
         {[
           { key: 'all' as TabType, label: '全部记录', count: stats.total },
           { key: 'vaccine' as TabType, label: '接种记录', count: stats.vaccines, icon: Syringe },
           { key: 'checkup' as TabType, label: '体检记录', count: stats.checkups, icon: Stethoscope },
+          { key: 'growth' as TabType, label: '成长曲线', icon: TrendingUp },
         ].map((t) => {
           const Icon = t.icon;
           return (
@@ -200,19 +222,125 @@ export default function RecordsPage() {
             >
               {Icon && <Icon className="w-4 h-4" />}
               {t.label}
-              <span
-                className={`text-xs px-1.5 py-0.5 rounded-full ${
-                  tab === t.key ? 'bg-white/20' : 'bg-slate-100'
-                }`}
-              >
-                {t.count}
-              </span>
+              {t.count !== undefined && (
+                <span
+                  className={`text-xs px-1.5 py-0.5 rounded-full ${
+                    tab === t.key ? 'bg-white/20' : 'bg-slate-100'
+                  }`}
+                >
+                  {t.count}
+                </span>
+              )}
             </button>
           );
         })}
       </div>
 
-      <div className="space-y-3">
+      {tab === 'growth' ? (
+        <div className="card animate-fade-in-up">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+            <div>
+              <h3 className="text-xl font-display text-slate-800 flex items-center gap-2">
+                <span className="text-2xl">📈</span>
+                宝宝成长曲线图
+              </h3>
+              <p className="text-sm text-slate-500 mt-1">基于WHO儿童生长标准，实时追踪宝宝发育情况</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <div className="flex bg-slate-100 rounded-lg p-1">
+                {[
+                  { key: 'weight' as GrowthMetric, label: '体重' },
+                  { key: 'height' as GrowthMetric, label: '身高' },
+                  { key: 'headCircumference' as GrowthMetric, label: '头围' },
+                ].map((m) => (
+                  <button
+                    key={m.key}
+                    onClick={() => setGrowthMetric(m.key)}
+                    className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
+                      growthMetric === m.key
+                        ? 'bg-white text-coral-600 shadow-sm'
+                        : 'text-slate-500 hover:text-slate-700'
+                    }`}
+                  >
+                    {m.label}
+                  </button>
+                ))}
+              </div>
+              <div className="flex bg-slate-100 rounded-lg p-1">
+                {[
+                  { key: 24, label: '0-2岁' },
+                  { key: 36, label: '0-3岁' },
+                  { key: 60, label: '0-5岁' },
+                  { key: 84, label: '0-7岁' },
+                ].map((a) => (
+                  <button
+                    key={a.key}
+                    onClick={() => setGrowthMaxAge(a.key)}
+                    className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+                      growthMaxAge === a.key
+                        ? 'bg-white text-mint-600 shadow-sm'
+                        : 'text-slate-500 hover:text-slate-700'
+                    }`}
+                  >
+                    {a.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {growthDataPoints.length === 0 ? (
+            <div className="text-center py-16">
+              <div className="text-6xl mb-4">📊</div>
+              <p className="text-slate-500">暂无成长数据</p>
+              <p className="text-slate-400 text-sm mt-1">完成儿保体检记录后自动生成成长曲线</p>
+              <button
+                onClick={() => navigate('/checkup-schedule')}
+                className="btn-primary mt-6"
+              >
+                去录入体检记录
+              </button>
+            </div>
+          ) : (
+            <>
+              <GrowthChart
+                metric={growthMetric}
+                gender={child!.gender}
+                dataPoints={growthDataPoints}
+                maxMonthAge={growthMaxAge}
+                height={360}
+                showLegend={true}
+              />
+
+              <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4">
+                {growthDataPoints
+                  .slice(-4)
+                  .reverse()
+                  .map((dp, idx) => {
+                    const growthData = getGrowthData(growthMetric, child!.gender);
+                    const percentile = calculatePercentileRank(dp.value, dp.monthAge, growthData);
+                    const status = getGrowthStatus(percentile);
+                    return (
+                      <div key={idx} className="p-4 rounded-xl bg-slate-50 border border-slate-100">
+                        <div className="text-xs text-slate-400 mb-1">{formatMonthAge(dp.monthAge)}</div>
+                        <div className="text-xl font-bold text-slate-700">
+                          {dp.value}
+                          <span className="text-xs font-normal text-slate-400 ml-1">
+                            {growthMetric === 'weight' ? 'kg' : 'cm'}
+                          </span>
+                        </div>
+                        <div className={`text-xs font-medium mt-1 ${status.color}`}>
+                          P{percentile.toFixed(0)} · {status.label}
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            </>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-3">
         {filteredRecords.length === 0 ? (
           <div className="card text-center py-16">
             <div className="text-6xl mb-4">📭</div>
@@ -418,6 +546,7 @@ export default function RecordsPage() {
           })
         )}
       </div>
+      )}
 
       {viewingRecord && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
@@ -505,6 +634,55 @@ export default function RecordsPage() {
                       <p className="text-sm text-mint-800">{(viewingRecord as CheckupRecord).doctorAdvice}</p>
                     </div>
                   )}
+
+                  {child && ((viewingRecord as CheckupRecord).weight !== undefined || 
+                              (viewingRecord as CheckupRecord).height !== undefined ||
+                              (viewingRecord as CheckupRecord).headCircumference !== undefined) && (
+                    <div className="mt-4 p-4 rounded-2xl bg-gradient-to-br from-blue-50 via-mint-50 to-coral-50 border border-blue-100">
+                      <p className="text-xs font-bold text-blue-600 mb-3 flex items-center gap-2">
+                        <TrendingUp className="w-4 h-4" />
+                        发育百分位分析
+                      </p>
+                      <div className="grid grid-cols-3 gap-3">
+                        {(viewingRecord as CheckupRecord).weight !== undefined && (() => {
+                          const growthData = getGrowthData('weight', child.gender);
+                          const pct = calculatePercentileRank((viewingRecord as CheckupRecord).weight!, (viewingRecord as CheckupRecord).monthAge, growthData);
+                          const status = getGrowthStatus(pct);
+                          return (
+                            <div className="text-center p-2 rounded-xl bg-white/70">
+                              <p className="text-xs text-slate-400">体重</p>
+                              <p className="text-lg font-bold text-slate-700">{(viewingRecord as CheckupRecord).weight}<span className="text-xs font-normal">kg</span></p>
+                              <p className={`text-xs font-medium ${status.color}`}>P{pct.toFixed(0)} · {status.label}</p>
+                            </div>
+                          );
+                        })()}
+                        {(viewingRecord as CheckupRecord).height !== undefined && (() => {
+                          const growthData = getGrowthData('height', child.gender);
+                          const pct = calculatePercentileRank((viewingRecord as CheckupRecord).height!, (viewingRecord as CheckupRecord).monthAge, growthData);
+                          const status = getGrowthStatus(pct);
+                          return (
+                            <div className="text-center p-2 rounded-xl bg-white/70">
+                              <p className="text-xs text-slate-400">身高</p>
+                              <p className="text-lg font-bold text-slate-700">{(viewingRecord as CheckupRecord).height}<span className="text-xs font-normal">cm</span></p>
+                              <p className={`text-xs font-medium ${status.color}`}>P{pct.toFixed(0)} · {status.label}</p>
+                            </div>
+                          );
+                        })()}
+                        {(viewingRecord as CheckupRecord).headCircumference !== undefined && (() => {
+                          const growthData = getGrowthData('headCircumference', child.gender);
+                          const pct = calculatePercentileRank((viewingRecord as CheckupRecord).headCircumference!, (viewingRecord as CheckupRecord).monthAge, growthData);
+                          const status = getGrowthStatus(pct);
+                          return (
+                            <div className="text-center p-2 rounded-xl bg-white/70">
+                              <p className="text-xs text-slate-400">头围</p>
+                              <p className="text-lg font-bold text-slate-700">{(viewingRecord as CheckupRecord).headCircumference}<span className="text-xs font-normal">cm</span></p>
+                              <p className={`text-xs font-medium ${status.color}`}>P{pct.toFixed(0)} · {status.label}</p>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    </div>
+                  )}
                 </>
               )}
             </div>
@@ -585,7 +763,7 @@ export default function RecordsPage() {
                     <select
                       className="input-field"
                       value={editForm.reactionSeverity || '无'}
-                      onChange={(e) => setEditForm({ ...editForm, reactionSeverity: e.target.value })}
+                      onChange={(e) => setEditForm({ ...editForm, reactionSeverity: e.target.value as '无' | '轻微' | '中度' | '严重' })}
                     >
                       <option value="无">无</option>
                       <option value="轻微">轻微</option>
