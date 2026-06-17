@@ -49,7 +49,7 @@ export default function ExportPrintPage() {
   } = useAppStore();
 
   const [template, setTemplate] = useState<TemplateType>('nursery');
-  const [showPreview, setShowPreview] = useState(false);
+  const [showPreview, setShowPreview] = useState(true);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     vaccine: true,
     checkup: true,
@@ -257,7 +257,7 @@ export default function ExportPrintPage() {
         </div>
       </div>
 
-      {(showPreview || true) && (
+      {showPreview && (
         <div className="print-container bg-white border border-slate-200 rounded-2xl shadow-soft-lg overflow-hidden">
           <div className="print-content p-8 md:p-12">
             <div className="text-center border-b-2 border-slate-300 pb-6 mb-8">
@@ -364,7 +364,7 @@ export default function ExportPrintPage() {
                                   )}
                                 </td>
                                 <td className="border border-slate-300 px-3 py-2 text-sm text-slate-600 text-center">
-                                  第{schedule?.doseNumber || r.vaccineName.includes('第') ? '' : ''}剂
+                                  {schedule ? `第${schedule.doseNumber}剂` : '-'}
                                 </td>
                                 <td className="border border-slate-300 px-3 py-2 text-sm text-slate-600 text-center">
                                   {schedule ? formatMonthAge(schedule.monthAge) : '-'}
