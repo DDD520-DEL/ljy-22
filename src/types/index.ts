@@ -1,0 +1,124 @@
+export interface Child {
+  id: string;
+  name: string;
+  gender: '男' | '女';
+  birthDate: string;
+  avatar?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface VaccineDefinition {
+  code: string;
+  name: string;
+  shortName: string;
+  preventDisease: string;
+  doses: DoseInfo[];
+  route: string;
+  contraindications: string[];
+  commonReactions: string[];
+  category: '一类' | '二类';
+}
+
+export interface DoseInfo {
+  doseNumber: number;
+  monthAgeMin: number;
+  monthAgeMax: number;
+  recommendedMonthAge: number;
+  site: string;
+  intervalAfterPrevious?: number;
+}
+
+export interface VaccineSchedule {
+  id: string;
+  childId: string;
+  vaccineCode: string;
+  vaccineName: string;
+  vaccineShortName: string;
+  doseNumber: number;
+  preventDisease: string;
+  monthAge: number;
+  plannedDate: string;
+  status: '待接种' | '已接种' | '已推迟' | '已错过';
+  route: string;
+  site: string;
+  contraindications: string;
+  notes?: string;
+  category: '一类' | '二类';
+}
+
+export interface VaccineRecord {
+  id: string;
+  childId: string;
+  scheduleId: string;
+  vaccineName: string;
+  vaccineShortName: string;
+  manufacturer: string;
+  batchNumber: string;
+  vaccinationDate: string;
+  site: string;
+  doctor?: string;
+  reaction: string;
+  reactionSeverity: '无' | '轻微' | '中度' | '严重';
+  notes?: string;
+  createdAt: string;
+}
+
+export interface CheckupDefinition {
+  monthAge: number;
+  items: CheckupItem[];
+  milestones: string[];
+  notes: string[];
+}
+
+export interface CheckupItem {
+  name: string;
+  category: '体格测量' | '全身检查' | '发育评估' | '辅助检查' | '其他';
+  description: string;
+}
+
+export interface CheckupSchedule {
+  id: string;
+  childId: string;
+  monthAge: number;
+  plannedDate: string;
+  status: '待体检' | '已体检' | '已错过';
+  items: CheckupItem[];
+  milestones: string[];
+  notes: string;
+}
+
+export interface CheckupRecord {
+  id: string;
+  childId: string;
+  scheduleId: string;
+  monthAge: number;
+  checkupDate: string;
+  weight?: number;
+  height?: number;
+  headCircumference?: number;
+  bmi?: string;
+  development?: string;
+  itemsResult?: string;
+  doctorAdvice?: string;
+  notes?: string;
+  createdAt: string;
+}
+
+export interface Reminder {
+  id: string;
+  childId: string;
+  type: 'vaccine' | 'checkup';
+  relatedId: string;
+  title: string;
+  dueDate: string;
+  remindDate: string;
+  status: '待提醒' | '已提醒' | '已完成';
+  daysBefore: number;
+  notifiedAt?: string;
+}
+
+export interface AppSettings {
+  reminderDaysBefore: number;
+  notificationEnabled: boolean;
+}

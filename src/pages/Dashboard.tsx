@@ -1,0 +1,315 @@
+import { useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import {
+  Syringe,
+  Stethoscope,
+  Bell,
+  FileText,
+  Printer,
+  Calendar,
+  ChevronRight,
+  AlertCircle,
+  CheckCircle,
+  Clock,
+} from 'lucide-react';
+import { useAppStore } from '@/store';
+import {
+  formatDate,
+  calculateMonthAge,
+  formatMonthAge,
+  getDaysBetween,
+  getToday,
+} from '@/utils/dateUtils';
+
+const quickLinks = [
+  { path: '/vaccine-schedule', icon: Syringe, label: '疫苗接种', color: 'from-mint-400 to-mint-500', emoji: '💉' },
+  { path: '/checkup-schedule', icon: Stethoscope, label: '儿保体检', color: 'from-coral-400 to-coral-500', emoji: '🏥' },
+  { path: '/reminders', icon: Bell, label: '提醒中心', color: 'from-amber-400 to-amber-500', emoji: '🔔' },
+  { path: '/records', icon: FileText, label: '记录管理', color: 'from-blue-400 to-blue-500', emoji: '📋' },
+  { path: '/export', icon: Printer, label: '导出打印', color: 'from-purple-400 to-purple-500', emoji: '🖨️' },
+  { path: '/child-info', icon: Calendar, label: '宝宝信息', color: 'from-pink-400 to-pink-500', emoji: '👶' },
+];
+
+export default function Dashboard() {
+  const navigate = useNavigate();
+  const { child, vaccineSchedules, checkupSchedules, reminders, vaccineRecords, checkupRecords, refreshReminders } =
+    useAppStore();
+
+  useEffect(() => {
+    if (!child) {
+      navigate('/child-info');
+      return;
+    }
+    refreshReminders();
+  }, [child, navigate, refreshReminders]);
+
+  if (!child) return null;
+
+  const today = getToday();
+  const monthAge = calculateMonthAge(child.birthDate);
+
+  const totalVaccines = vaccineSchedules.length;
+  const completedVaccines = vaccineSchedules.filter((v) => v.status === '已接种').length;
+  const vaccineProgress = totalVaccines > 0 ? Math.round((completedVaccines / totalVaccines) * 100) : 0;
+
+  const totalCheckups = checkupSchedules.length;
+  const completedCheckups = checkupSchedules.filter((c) => c.status === '已体检').length;
+  const checkupProgress = totalCheckups > 0 ? Math.round((completedCheckups / totalCheckups) * 100) : 0;
+
+  const upcomingReminders = reminders.filter((r) => r.status !== '已完成').slice(0, 4);
+
+  const getStatusStyle = (days: number) => {
+    if (days < 0) return { bg: 'bg-red-100', text: 'text-red-600', icon: AlertCircle, label: '已过期' };
+    if (days === 0) return { bg: 'bg-coral-100', text: 'text-coral-600', icon: Bell, label: '今天' };
+    if (days <= 3) return { bg: 'bg-amber-100', text: 'text-amber-600', icon: Clock, label: `${days}天后` };
+    return { bg: 'bg-mint-100', text: 'text-mint-600', icon: CheckCircle, label: `${days}天后` };
+  };
+
+  return (
+    <div className="space-y-6 animate-fade-in-up">
+      <div className="card overflow-hidden p-0">
+        <div className="bg-gradient-to-r from-mint-400 via-mint-300 to-coral-300 p-8 text-white relative">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-32 translate-x-32"></div>
+          <div className="absolute bottom-0 left-1/3 w-48 h-48 bg-white/10 rounded-full translate-y-24"></div>
+          
+          <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+            <div className="flex items-center gap-5">
+              <div className="w-20 h-20 rounded-3xl bg-white/30 backdrop-blur flex items-center justify-center text-5xl shadow-xl animate-float">
+                {child.gender === '男' ? '👦' : '👧'}
+              </div>
+              <div>
+                <h1 className="text-4xl font-display mb-1">你好，{child.name}！</h1>
+                <p className="text-white/90 text-lg">
+                  当前 <span className="font-bold">{formatMonthAge(monthAge)}</span> · 健康成长每一天 🌱
+                </p>
+                <p className="text-white/70 text-sm mt-1">
+                  出生于 {formatDate(child.birthDate, 'YYYY年MM月DD日')}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-6">
+              <div className="text-center">
+                <div className="text-4xl font-bold">{vaccineProgress}%</div>
+                <p className="text-white/80 text-sm mt-1">疫苗进度</p>
+              </div>
+              <div className="w-px bg-white/30"></div>
+              <div className="text-center">
+                <div className="text-4xl font-bold">{checkupProgress}%</div>
+                <p className="text-white/80 text-sm mt-1">体检进度</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="card card-hover">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold text-lg text-slate-800 flex items-center gap-2">
+              <span className="text-2xl">💉</span>
+              疫苗接种进度
+            </h3>
+            <Link to="/vaccine-schedule" className="text-mint-500 text-sm font-medium flex items-center hover:text-mint-600">
+              查看详情 <ChevronRight className="w-4 h-4" />
+            </Link>
+          </div>
+          <div className="relative pt-2">
+            <div className="h-4 bg-mint-50 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-mint-400 to-mint-500 rounded-full transition-all duration-1000 ease-out"
+                style={{ width: `${vaccineProgress}%` }}
+              ></div>
+            </div>
+            <div className="flex justify-between mt-3 text-sm">
+              <span className="text-slate-500">
+                已完成 <span className="font-bold text-mint-600">{completedVaccines}</span> 剂
+              </span>
+              <span className="text-slate-500">
+                共 <span className="font-bold text-slate-700">{totalVaccines}</span> 剂
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="card card-hover">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold text-lg text-slate-800 flex items-center gap-2">
+              <span className="text-2xl">🏥</span>
+              儿保体检进度
+            </h3>
+            <Link to="/checkup-schedule" className="text-coral-500 text-sm font-medium flex items-center hover:text-coral-600">
+              查看详情 <ChevronRight className="w-4 h-4" />
+            </Link>
+          </div>
+          <div className="relative pt-2">
+            <div className="h-4 bg-coral-50 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-coral-400 to-coral-500 rounded-full transition-all duration-1000 ease-out"
+                style={{ width: `${checkupProgress}%` }}
+              ></div>
+            </div>
+            <div className="flex justify-between mt-3 text-sm">
+              <span className="text-slate-500">
+                已完成 <span className="font-bold text-coral-600">{completedCheckups}</span> 次
+              </span>
+              <span className="text-slate-500">
+                共 <span className="font-bold text-slate-700">{totalCheckups}</span> 次
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="font-semibold text-lg text-slate-800 flex items-center gap-2">
+            <Bell className="w-6 h-6 text-amber-500" />
+            近期提醒
+          </h3>
+          <Link to="/reminders" className="text-sm font-medium text-slate-500 hover:text-slate-700 flex items-center">
+            全部提醒 <ChevronRight className="w-4 h-4" />
+          </Link>
+        </div>
+
+        {upcomingReminders.length === 0 ? (
+          <div className="text-center py-12">
+            <div className="text-6xl mb-4">🎉</div>
+            <p className="text-slate-500">近期没有需要提醒的事项</p>
+            <p className="text-slate-400 text-sm mt-1">系统将在到期前3天自动提醒您</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {upcomingReminders.map((reminder) => {
+              const daysToDue = getDaysBetween(today, reminder.dueDate);
+              const style = getStatusStyle(daysToDue);
+              const StatusIcon = style.icon;
+              return (
+                <div
+                  key={reminder.id}
+                  className="flex items-center gap-4 p-4 rounded-2xl border border-slate-100 bg-slate-50/50 hover:bg-white hover:shadow-soft transition-all duration-300 group cursor-pointer"
+                  onClick={() =>
+                    navigate(reminder.type === 'vaccine' ? '/vaccine-schedule' : '/checkup-schedule')
+                  }
+                >
+                  <div
+                    className={`w-12 h-12 rounded-xl ${style.bg} flex items-center justify-center flex-shrink-0 ${
+                      daysToDue <= 1 ? 'animate-pulse-soft' : ''
+                    }`}
+                  >
+                    <StatusIcon className={`w-6 h-6 ${style.text}`} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-slate-800 truncate">{reminder.title}</p>
+                    <p className="text-sm text-slate-500 flex items-center gap-2 mt-0.5">
+                      <Calendar className="w-3.5 h-3.5" />
+                      {formatDate(reminder.dueDate, 'YYYY年MM月DD日')}
+                      <span className="text-slate-300">·</span>
+                      <span className={reminder.type === 'vaccine' ? 'text-mint-600' : 'text-coral-600'}>
+                        {reminder.type === 'vaccine' ? '疫苗接种' : '儿保体检'}
+                      </span>
+                    </p>
+                  </div>
+                  <div className={`status-badge ${style.bg} ${style.text}`}>
+                    {style.label}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <div>
+        <h3 className="font-semibold text-lg text-slate-800 mb-4 flex items-center gap-2">
+          <span className="text-2xl">🚀</span>
+          快捷入口
+        </h3>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+          {quickLinks.map((link) => {
+            const Icon = link.icon;
+            return (
+              <Link
+                key={link.path}
+                to={link.path}
+                className="card card-hover text-center group"
+              >
+                <div
+                  className={`w-14 h-14 mx-auto rounded-2xl bg-gradient-to-br ${link.color} flex items-center justify-center mb-3 shadow-soft group-hover:scale-110 transition-transform duration-300`}
+                >
+                  <Icon className="w-7 h-7 text-white" />
+                </div>
+                <p className="font-medium text-slate-700 text-sm">{link.label}</p>
+              </Link>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="card">
+          <h3 className="font-semibold text-lg text-slate-800 mb-4 flex items-center gap-2">
+            <span className="text-2xl">📝</span>
+            最近记录
+          </h3>
+          <div className="space-y-3 max-h-64 overflow-y-auto">
+            {[...vaccineRecords, ...checkupRecords]
+              .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+              .slice(0, 5)
+              .map((record) => (
+                <div
+                  key={record.id}
+                  className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 hover:bg-mint-50/50 transition-colors"
+                >
+                  <div className="w-10 h-10 rounded-xl bg-mint-100 flex items-center justify-center text-xl">
+                    {'vaccinationDate' in record ? '💉' : '🏥'}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-slate-700 text-sm truncate">
+                      {'vaccineName' in record ? record.vaccineName : `${formatMonthAge(record.monthAge)}体检`}
+                    </p>
+                    <p className="text-xs text-slate-400">
+                      {formatDate(
+                        'vaccinationDate' in record ? record.vaccinationDate : record.checkupDate,
+                        'YYYY年MM月DD日'
+                      )}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            {vaccineRecords.length === 0 && checkupRecords.length === 0 && (
+              <div className="text-center py-8 text-slate-400 text-sm">
+                还没有记录，完成接种后记得添加哦~
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="card bg-gradient-to-br from-mint-50 to-coral-50 border-mint-100">
+          <h3 className="font-semibold text-lg text-slate-800 mb-4 flex items-center gap-2">
+            <span className="text-2xl">💡</span>
+            温馨提示
+          </h3>
+          <div className="space-y-3 text-sm text-slate-600">
+            <div className="flex items-start gap-3 p-3 rounded-xl bg-white/70">
+              <span className="text-xl">⏰</span>
+              <p>系统会在每个接种和体检节点前 <span className="font-bold text-coral-500">3天</span> 自动提醒您</p>
+            </div>
+            <div className="flex items-start gap-3 p-3 rounded-xl bg-white/70">
+              <span className="text-xl">💉</span>
+              <p>接种后请及时记录 <span className="font-bold text-mint-500">疫苗批号、厂家和反应</span>，便于后续查询</p>
+            </div>
+            <div className="flex items-start gap-3 p-3 rounded-xl bg-white/70">
+              <span className="text-xl">📋</span>
+              <p>入托/入学前可在 <span className="font-bold text-purple-500">导出打印</span> 页面一键生成格式化表格</p>
+            </div>
+            <div className="flex items-start gap-3 p-3 rounded-xl bg-white/70">
+              <span className="text-xl">🔒</span>
+              <p>所有数据保存在 <span className="font-bold text-blue-500">本地浏览器</span>，请定期导出备份</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
