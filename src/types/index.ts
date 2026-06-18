@@ -105,6 +105,30 @@ export interface CheckupRecord {
   createdAt: string;
 }
 
+export type DevelopmentDimension = '大运动' | '精细动作' | '语言' | '社交';
+
+export interface MilestoneChecklistDefinition {
+  monthAge: number;
+  title: string;
+  dimensions: Record<DevelopmentDimension, string[]>;
+}
+
+export interface MilestoneAssessment {
+  id: string;
+  childId: string;
+  monthAge: number;
+  checklistMonthAge: number;
+  checkedItems: Record<DevelopmentDimension, string[]>;
+  scores: Record<DevelopmentDimension, number>;
+  totalScore: number;
+  level: '优秀' | '良好' | '需关注' | '建议复查';
+  summary: string;
+  assessmentDate: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Reminder {
   id: string;
   childId: string;

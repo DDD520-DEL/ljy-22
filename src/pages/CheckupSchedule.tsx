@@ -14,6 +14,7 @@ import {
   AlertCircle,
   FileText,
   Heart,
+  Target,
 } from 'lucide-react';
 import { useAppStore } from '@/store';
 import type { CheckupSchedule as CheckupScheduleType, CheckupRecord } from '@/types';
@@ -22,7 +23,14 @@ import {
   formatMonthAge,
   getDaysBetween,
   getToday,
+  calculateMonthAge,
 } from '@/utils/dateUtils';
+import {
+  MILESTONE_CHECKLISTS,
+  getNearestMilestoneChecklist,
+  getMilestoneChecklist,
+} from '@/data/milestones';
+import MilestoneAssessmentForm from '@/components/MilestoneAssessmentForm';
 
 type FilterType = 'all' | 'pending' | 'completed' | 'missed';
 
@@ -34,11 +42,15 @@ export default function CheckupSchedulePage() {
     checkupSchedules,
     checkupRecords,
     addCheckupRecord,
+    milestoneAssessments,
+    saveMilestoneAssessment,
+    deleteMilestoneAssessment,
   } = useAppStore();
 
   const child = children.find((c) => c.id === currentChildId) || null;
   const currentCheckupSchedules = checkupSchedules.filter((s) => s.childId === currentChildId);
   const currentCheckupRecords = checkupRecords.filter((r) => r.childId === currentChildId);
+  const currentMilestoneAssessments = milestoneAssessments.filter((a) => a.childId === currentChildId);
 
   const [filter, setFilter] = useState<FilterType>('all');
   const [selectedSchedule, setSelectedSchedule] = useState<CheckupScheduleType | null>(null);
@@ -55,12 +67,27 @@ export default function CheckupSchedulePage() {
     notes: '',
   });
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [stageOverride, setStageOverride] = useState<number | null>(null);
+  const [showMilestone, setShowMilestone] = useState(false);
 
   useEffect(() => {
     if (!child) navigate('/child-info');
   }, [child, navigate]);
 
+  useEffect(() => {
+    setStageOverride(null);
+  }, [currentChildId]);
+
   if (!child) return null;
+
+  const currentMonthAge = calculateMonthAge(child.birthDate);
+  const nearestChecklist = getNearestMilestoneChecklist(currentMonthAge);
+  const activeChecklistMonthAge = stageOverride ?? nearestChecklist.monthAge;
+  const activeChecklist = getMilestoneChecklist(activeChecklistMonthAge) ?? nearestChecklist;
+  const existingAssessment = currentMilestoneAssessments.find(
+    (a) => a.checklistMonthAge === activeChecklist.monthAge
+  );
+  const nearestMonthAgeDiff = Math.abs(currentMonthAge - nearestChecklist.monthAge);
 
   const today = getToday();
 
@@ -190,6 +217,67 @@ export default function CheckupSchedulePage() {
             </button>
           ))}
         </div>
+      </div>
+
+      <div className="card border-2 border-purple-100 bg-gradient-to-br from-purple-50/50 to-white overflow-hidden">
+        <div
+          className="flex items-center justify-between cursor-pointer"
+          onClick={() => setShowMilestone((v) => !v)}
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center shadow-soft">
+              <Target className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                发育里程碑评估
+                {existingAssessment && (
+                  <span className="status-badge bg-mint-100 text-mint-600">
+                    <CheckCircle className="w-3 h-3 mr-1" />
+                    已评估 · {existingAssessment.totalScore}分
+                  </span>
+                )}
+              </h2>
+              <p className="text-sm text-slate-500 mt-0.5">
+                宝宝当前 {formatMonthAge(currentMonthAge)}
+                {nearestMonthAgeDiff > 0 && (
+                  <span className="text-purple-500"> · 匹配 {formatMonthAge(activeChecklist.monthAge)} 自查表</span>
+                )}
+                ，逐项勾选宝宝已掌握的能力
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <select
+              value={activeChecklist.monthAge}
+              onClick={(e) => e.stopPropagation()}
+              onChange={(e) => setStageOverride(Number(e.target.value))}
+              className="px-3 py-1.5 rounded-lg border-2 border-slate-100 bg-white text-sm text-slate-600 focus:border-purple-300 outline-none cursor-pointer"
+            >
+              {MILESTONE_CHECKLISTS.map((c) => (
+                <option key={c.monthAge} value={c.monthAge}>
+                  {formatMonthAge(c.monthAge)} 自查表
+                </option>
+              ))}
+            </select>
+            <span className="text-slate-400 text-sm px-2">
+              {showMilestone ? '收起 ▲' : '展开 ▼'}
+            </span>
+          </div>
+        </div>
+
+        {showMilestone && (
+          <div className="mt-6 pt-6 border-t border-purple-100 animate-fade-in">
+            <MilestoneAssessmentForm
+              key={activeChecklist.monthAge}
+              checklist={activeChecklist}
+              childMonthAge={currentMonthAge}
+              existing={existingAssessment}
+              onSave={saveMilestoneAssessment}
+              onDelete={deleteMilestoneAssessment}
+            />
+          </div>
+        )}
       </div>
 
       <div className="grid gap-6">

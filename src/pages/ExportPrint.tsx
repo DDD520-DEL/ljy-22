@@ -11,6 +11,7 @@ import {
   ChevronUp,
   ClipboardList,
   TrendingUp,
+  Target,
 } from 'lucide-react';
 import { useAppStore } from '@/store';
 import {
@@ -18,6 +19,8 @@ import {
   formatMonthAge,
 } from '@/utils/dateUtils';
 import GrowthChart from '@/components/GrowthChart';
+import RadarChart from '@/components/RadarChart';
+import { DEVELOPMENT_DIMENSIONS } from '@/data/milestones';
 import { calculatePercentileRank, getGrowthData, getGrowthStatus } from '@/data/growthStandards';
 
 type TemplateType = 'nursery' | 'school' | 'full';
@@ -48,20 +51,24 @@ export default function ExportPrintPage() {
     vaccineSchedules,
     vaccineRecords,
     checkupRecords,
+    milestoneAssessments,
   } = useAppStore();
 
   const child = children.find((c) => c.id === currentChildId) || null;
   const currentVaccineSchedules = vaccineSchedules.filter((s) => s.childId === currentChildId);
   const currentVaccineRecords = vaccineRecords.filter((r) => r.childId === currentChildId);
   const currentCheckupRecords = checkupRecords.filter((r) => r.childId === currentChildId);
+  const currentMilestoneAssessments = milestoneAssessments.filter((a) => a.childId === currentChildId);
 
   const [template, setTemplate] = useState<TemplateType>('nursery');
   const [showPreview, setShowPreview] = useState(true);
   const [includeGrowth, setIncludeGrowth] = useState(true);
+  const [includeMilestone, setIncludeMilestone] = useState(true);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     vaccine: true,
     checkup: true,
     growth: true,
+    milestone: true,
   });
 
   const filterRecordsByTemplate = () => {
@@ -111,6 +118,11 @@ export default function ExportPrintPage() {
 
   const { filteredVaccineRecords, filteredCheckupRecords } = filterRecordsByTemplate();
   const pendingVaccines = getPendingVaccines();
+
+  const milestoneMaxMonthAge = template === 'nursery' ? 36 : 84;
+  const filteredMilestoneAssessments = currentMilestoneAssessments
+    .filter((a) => a.checklistMonthAge <= milestoneMaxMonthAge)
+    .sort((a, b) => a.checklistMonthAge - b.checklistMonthAge);
 
   const maxGrowthMonthAge = template === 'nursery' ? 36 : template === 'school' ? 84 : 84;
 
@@ -167,6 +179,10 @@ export default function ExportPrintPage() {
         headCircumference: growthDataPoints.headCircumference,
         standard: 'WHO Child Growth Standards',
       };
+    }
+
+    if (includeMilestone && filteredMilestoneAssessments.length > 0) {
+      exportData.milestoneAssessments = filteredMilestoneAssessments;
     }
 
     const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
@@ -314,6 +330,17 @@ export default function ExportPrintPage() {
           >
             <TrendingUp className="w-5 h-5" />
             {includeGrowth ? '✓ 含成长曲线' : '含成长曲线'}
+          </button>
+          <button
+            className={`flex items-center justify-center gap-2 flex-1 sm:flex-none px-5 py-2.5 rounded-xl font-medium transition-all ${
+              includeMilestone
+                ? 'bg-gradient-to-r from-purple-400 to-pink-400 text-white shadow-soft'
+                : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+            }`}
+            onClick={() => setIncludeMilestone(!includeMilestone)}
+          >
+            <Target className="w-5 h-5" />
+            {includeMilestone ? '✓ 含发育评估' : '含发育评估'}
           </button>
         </div>
       </div>
@@ -549,6 +576,116 @@ export default function ExportPrintPage() {
                 </>
               )}
             </div>
+
+            {includeMilestone && filteredMilestoneAssessments.length > 0 && (
+              <div className="mb-10">
+                <div
+                  className="no-print flex items-center justify-between mb-4 cursor-pointer"
+                  onClick={() => toggleSection('milestone')}
+                >
+                  <h2 className="text-xl font-bold text-slate-700 flex items-center gap-2">
+                    <span className="w-1 h-6 bg-pink-400 rounded-full"></span>
+                    发育里程碑评估
+                  </h2>
+                  {expandedSections.milestone ? (
+                    <ChevronUp className="w-5 h-5 text-slate-400" />
+                  ) : (
+                    <ChevronDown className="w-5 h-5 text-slate-400" />
+                  )}
+                </div>
+                <h2 className="print-only text-xl font-bold text-slate-700 mb-4 flex items-center gap-2">
+                  <span className="w-1 h-6 bg-pink-400 rounded-full"></span>
+                  发育里程碑评估
+                </h2>
+                <p className="text-xs text-slate-400 mb-4">
+                  涵盖大运动、精细动作、语言、社交四维度，由家长逐项勾选后生成雷达图
+                </p>
+
+                {expandedSections.milestone && (
+                  <>
+                    <div className="overflow-x-auto mb-6">
+                      <table className="w-full border-collapse">
+                        <thead>
+                          <tr className="bg-slate-100">
+                            <th className="border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-600">序号</th>
+                            <th className="border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-600">评估月龄</th>
+                            <th className="border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-600">评估日期</th>
+                            <th className="border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-600">大运动</th>
+                            <th className="border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-600">精细动作</th>
+                            <th className="border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-600">语言</th>
+                            <th className="border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-600">社交</th>
+                            <th className="border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-600">综合得分</th>
+                            <th className="border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-600">等级</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredMilestoneAssessments.map((a, idx) => (
+                            <tr key={a.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
+                              <td className="border border-slate-300 px-3 py-2 text-sm text-slate-600 text-center">{idx + 1}</td>
+                              <td className="border border-slate-300 px-3 py-2 text-sm text-slate-600 text-center">
+                                {formatMonthAge(a.checklistMonthAge)}
+                              </td>
+                              <td className="border border-slate-300 px-3 py-2 text-sm text-slate-600 text-center">
+                                {formatDate(a.assessmentDate, 'YYYY年MM月DD日')}
+                              </td>
+                              {DEVELOPMENT_DIMENSIONS.map((dim) => (
+                                <td key={dim} className="border border-slate-300 px-3 py-2 text-sm text-center font-medium">
+                                  {a.scores[dim]}
+                                </td>
+                              ))}
+                              <td className="border border-slate-300 px-3 py-2 text-sm text-center font-bold text-slate-700">
+                                {a.totalScore}
+                              </td>
+                              <td className="border border-slate-300 px-3 py-2 text-sm text-center">
+                                <span className={
+                                  a.level === '优秀' ? 'text-mint-600' :
+                                  a.level === '良好' ? 'text-blue-600' :
+                                  a.level === '需关注' ? 'text-amber-600' : 'text-red-600'
+                                }>
+                                  {a.level}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      {filteredMilestoneAssessments.map((a) => (
+                        <div key={a.id} className="border border-slate-200 rounded-xl p-5">
+                          <div className="flex items-center justify-between mb-3">
+                            <h3 className="font-semibold text-slate-700">
+                              {formatMonthAge(a.checklistMonthAge)} 发育雷达
+                            </h3>
+                            <span className={
+                              'text-xs px-2 py-0.5 rounded-full font-medium ' +
+                              (a.level === '优秀' ? 'bg-mint-100 text-mint-600' :
+                               a.level === '良好' ? 'bg-blue-100 text-blue-600' :
+                               a.level === '需关注' ? 'bg-amber-100 text-amber-600' : 'bg-red-100 text-red-600')
+                            }>
+                              {a.level} · {a.totalScore}分
+                            </span>
+                          </div>
+                          <RadarChart
+                            data={DEVELOPMENT_DIMENSIONS.map((dim) => ({ label: dim, value: a.scores[dim] }))}
+                            size={260}
+                          />
+                          <p className="text-xs text-slate-500 mt-3 leading-relaxed border-t border-slate-100 pt-3">
+                            {a.summary}
+                          </p>
+                          {a.notes && (
+                            <p className="text-xs text-slate-500 mt-2">
+                              <strong>备注：</strong>{a.notes}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
 
             {includeGrowth && hasGrowthData && (
               <div className="mb-10 page-break-before">

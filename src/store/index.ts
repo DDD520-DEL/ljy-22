@@ -11,6 +11,7 @@ import type {
   VaccineReactionDiary,
   ReactionLogEntry,
   ReactionSummary,
+  MilestoneAssessment,
 } from '@/types';
 import {
   generateVaccineSchedules,
@@ -29,6 +30,7 @@ interface AppState {
   checkupRecords: CheckupRecord[];
   reminders: Reminder[];
   reactionDiaries: VaccineReactionDiary[];
+  milestoneAssessments: MilestoneAssessment[];
   settings: AppSettings;
 
   get currentChild(): Child | null;
@@ -45,6 +47,9 @@ interface AppState {
   addCheckupRecord: (record: Omit<CheckupRecord, 'id' | 'childId' | 'createdAt'>) => void;
   updateCheckupRecord: (id: string, data: Partial<CheckupRecord>) => void;
   deleteCheckupRecord: (id: string) => void;
+
+  saveMilestoneAssessment: (assessment: Omit<MilestoneAssessment, 'id' | 'childId' | 'createdAt' | 'updatedAt'>) => void;
+  deleteMilestoneAssessment: (id: string) => void;
 
   refreshReminders: () => void;
   markReminderComplete: (id: string) => void;
@@ -77,6 +82,7 @@ export const useAppStore = create<AppState>()(
       checkupRecords: [],
       reminders: [],
       reactionDiaries: [],
+      milestoneAssessments: [],
       settings: initialSettings,
 
       get currentChild() {
@@ -153,6 +159,7 @@ export const useAppStore = create<AppState>()(
           const newCheckupRecords = state.checkupRecords.filter((r) => r.childId !== id);
           const newReminders = state.reminders.filter((r) => r.childId !== id);
           const newReactionDiaries = state.reactionDiaries.filter((d) => d.childId !== id);
+          const newMilestoneAssessments = state.milestoneAssessments.filter((a) => a.childId !== id);
 
           let newCurrentChildId = state.currentChildId;
           if (state.currentChildId === id) {
@@ -168,6 +175,7 @@ export const useAppStore = create<AppState>()(
             checkupRecords: newCheckupRecords,
             reminders: newReminders,
             reactionDiaries: newReactionDiaries,
+            milestoneAssessments: newMilestoneAssessments,
           };
         });
       },
@@ -294,6 +302,43 @@ export const useAppStore = create<AppState>()(
         });
 
         get().refreshReminders();
+      },
+
+      saveMilestoneAssessment: (assessment) => {
+        const state = get();
+        if (!state.currentChildId) return;
+
+        const now = new Date().toISOString();
+        const existing = state.milestoneAssessments.find(
+          (a) => a.childId === state.currentChildId && a.checklistMonthAge === assessment.checklistMonthAge
+        );
+
+        if (existing) {
+          set({
+            milestoneAssessments: state.milestoneAssessments.map((a) =>
+              a.id === existing.id
+                ? { ...a, ...assessment, updatedAt: now }
+                : a
+            ),
+          });
+        } else {
+          const newAssessment: MilestoneAssessment = {
+            ...assessment,
+            id: generateId(),
+            childId: state.currentChildId,
+            createdAt: now,
+            updatedAt: now,
+          };
+          set({
+            milestoneAssessments: [...state.milestoneAssessments, newAssessment],
+          });
+        }
+      },
+
+      deleteMilestoneAssessment: (id) => {
+        set((state) => ({
+          milestoneAssessments: state.milestoneAssessments.filter((a) => a.id !== id),
+        }));
       },
 
       refreshReminders: () => {
