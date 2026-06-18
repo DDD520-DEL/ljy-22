@@ -29,11 +29,16 @@ type FilterType = 'all' | 'pending' | 'completed' | 'missed';
 export default function CheckupSchedulePage() {
   const navigate = useNavigate();
   const {
-    child,
+    children,
+    currentChildId,
     checkupSchedules,
     checkupRecords,
     addCheckupRecord,
   } = useAppStore();
+
+  const child = children.find((c) => c.id === currentChildId) || null;
+  const currentCheckupSchedules = checkupSchedules.filter((s) => s.childId === currentChildId);
+  const currentCheckupRecords = checkupRecords.filter((r) => r.childId === currentChildId);
 
   const [filter, setFilter] = useState<FilterType>('all');
   const [selectedSchedule, setSelectedSchedule] = useState<CheckupScheduleType | null>(null);
@@ -59,7 +64,7 @@ export default function CheckupSchedulePage() {
 
   const today = getToday();
 
-  const filteredSchedules = checkupSchedules.filter((s) => {
+  const filteredSchedules = currentCheckupSchedules.filter((s) => {
     if (filter === 'pending') return s.status === '待体检';
     if (filter === 'completed') return s.status === '已体检';
     if (filter === 'missed') return s.status === '已错过';
@@ -111,7 +116,7 @@ export default function CheckupSchedulePage() {
 
   const openRecordModal = (schedule: CheckupScheduleType) => {
     setSelectedSchedule(schedule);
-    const existing = checkupRecords.find((r) => r.scheduleId === schedule.id);
+    const existing = currentCheckupRecords.find((r) => r.scheduleId === schedule.id);
     setRecordForm({
       checkupDate: getToday(),
       weight: existing?.weight,
@@ -141,7 +146,7 @@ export default function CheckupSchedulePage() {
   };
 
   const getRecordForSchedule = (scheduleId: string) => {
-    return checkupRecords.find((r) => r.scheduleId === scheduleId);
+    return currentCheckupRecords.find((r) => r.scheduleId === scheduleId);
   };
 
   const categoryIcons: Record<string, typeof Heart> = {
@@ -161,7 +166,7 @@ export default function CheckupSchedulePage() {
             儿保体检时间表
           </h1>
           <p className="text-slate-500 mt-1">
-            按国家儿童保健规范，共 {checkupSchedules.length} 次体检
+            按国家儿童保健规范，共 {currentCheckupSchedules.length} 次体检
           </p>
         </div>
 

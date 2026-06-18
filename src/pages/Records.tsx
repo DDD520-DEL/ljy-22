@@ -29,7 +29,8 @@ type CombinedRecord = (VaccineRecord | CheckupRecord) & { recordType: 'vaccine' 
 export default function RecordsPage() {
   const navigate = useNavigate();
   const {
-    child,
+    children,
+    currentChildId,
     vaccineSchedules,
     checkupSchedules,
     vaccineRecords,
@@ -39,6 +40,12 @@ export default function RecordsPage() {
     updateCheckupRecord,
     deleteCheckupRecord,
   } = useAppStore();
+
+  const child = children.find((c) => c.id === currentChildId) || null;
+  const currentVaccineSchedules = vaccineSchedules.filter((s) => s.childId === currentChildId);
+  const currentCheckupSchedules = checkupSchedules.filter((s) => s.childId === currentChildId);
+  const currentVaccineRecords = vaccineRecords.filter((r) => r.childId === currentChildId);
+  const currentCheckupRecords = checkupRecords.filter((r) => r.childId === currentChildId);
 
   const [tab, setTab] = useState<TabType>('all');
   const [search, setSearch] = useState('');
@@ -55,7 +62,7 @@ export default function RecordsPage() {
 
   const growthDataPoints = useMemo(() => {
     const points: { monthAge: number; value: number }[] = [];
-    for (const record of checkupRecords) {
+    for (const record of currentCheckupRecords) {
       let value: number | undefined;
       if (growthMetric === 'weight') value = record.weight;
       else if (growthMetric === 'height') value = record.height;
@@ -66,13 +73,13 @@ export default function RecordsPage() {
       }
     }
     return points.sort((a, b) => a.monthAge - b.monthAge);
-  }, [checkupRecords, growthMetric]);
+  }, [currentCheckupRecords, growthMetric]);
 
   if (!child) return null;
 
   const combinedRecords: CombinedRecord[] = [
-    ...vaccineRecords.map((r) => ({ ...r, recordType: 'vaccine' as const })),
-    ...checkupRecords.map((r) => ({ ...r, recordType: 'checkup' as const })),
+    ...currentVaccineRecords.map((r) => ({ ...r, recordType: 'vaccine' as const })),
+    ...currentCheckupRecords.map((r) => ({ ...r, recordType: 'checkup' as const })),
   ].sort((a, b) => {
     const dateA = 'vaccinationDate' in a ? a.vaccinationDate : a.checkupDate;
     const dateB = 'vaccinationDate' in b ? b.vaccinationDate : b.checkupDate;
@@ -105,8 +112,8 @@ export default function RecordsPage() {
 
   const stats = {
     total: combinedRecords.length,
-    vaccines: vaccineRecords.length,
-    checkups: checkupRecords.length,
+    vaccines: currentVaccineRecords.length,
+    checkups: currentCheckupRecords.length,
   };
 
   const openView = (record: CombinedRecord) => {
@@ -365,10 +372,10 @@ export default function RecordsPage() {
             const cr = !isVaccine ? (record as CheckupRecord) : null;
             const date = isVaccine ? vr!.vaccinationDate : cr!.checkupDate;
             const relatedVaccineSchedule = isVaccine
-              ? vaccineSchedules.find((s) => s.id === vr!.scheduleId)
+              ? currentVaccineSchedules.find((s) => s.id === vr!.scheduleId)
               : undefined;
             const relatedCheckupSchedule = !isVaccine
-              ? checkupSchedules.find((s) => s.id === cr!.scheduleId)
+              ? currentCheckupSchedules.find((s) => s.id === cr!.scheduleId)
               : undefined;
 
             return (

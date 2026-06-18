@@ -26,12 +26,17 @@ type CategoryType = 'all' | '一类' | '二类';
 export default function VaccineSchedulePage() {
   const navigate = useNavigate();
   const {
-    child,
+    children,
+    currentChildId,
     vaccineSchedules,
     vaccineRecords,
     addVaccineRecord,
     updateVaccineScheduleStatus,
   } = useAppStore();
+
+  const child = children.find((c) => c.id === currentChildId) || null;
+  const currentVaccineSchedules = vaccineSchedules.filter((s) => s.childId === currentChildId);
+  const currentVaccineRecords = vaccineRecords.filter((r) => r.childId === currentChildId);
 
   const [filter, setFilter] = useState<FilterType>('all');
   const [category, setCategory] = useState<CategoryType>('all');
@@ -56,7 +61,7 @@ export default function VaccineSchedulePage() {
 
   const today = getToday();
 
-  const filteredSchedules = vaccineSchedules.filter((s) => {
+  const filteredSchedules = currentVaccineSchedules.filter((s) => {
     if (category !== 'all' && s.category !== category) return false;
     if (filter === 'pending') return s.status === '待接种' || s.status === '已推迟';
     if (filter === 'completed') return s.status === '已接种';
@@ -143,7 +148,7 @@ export default function VaccineSchedulePage() {
   };
 
   const getRecordForSchedule = (scheduleId: string) => {
-    return vaccineRecords.find((r) => r.scheduleId === scheduleId);
+    return currentVaccineRecords.find((r) => r.scheduleId === scheduleId);
   };
 
   return (
@@ -155,7 +160,7 @@ export default function VaccineSchedulePage() {
             疫苗接种时间表
           </h1>
           <p className="text-slate-500 mt-1">
-            按照国家免疫规划自动生成，共 {vaccineSchedules.length} 剂次
+            按照国家免疫规划自动生成，共 {currentVaccineSchedules.length} 剂次
           </p>
         </div>
 

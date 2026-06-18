@@ -33,8 +33,15 @@ const quickLinks = [
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { child, vaccineSchedules, checkupSchedules, reminders, vaccineRecords, checkupRecords, refreshReminders } =
+  const { children, currentChildId, vaccineSchedules, checkupSchedules, reminders, vaccineRecords, checkupRecords, refreshReminders } =
     useAppStore();
+
+  const child = children.find((c) => c.id === currentChildId) || null;
+  const currentVaccineSchedules = vaccineSchedules.filter((s) => s.childId === currentChildId);
+  const currentCheckupSchedules = checkupSchedules.filter((s) => s.childId === currentChildId);
+  const currentVaccineRecords = vaccineRecords.filter((r) => r.childId === currentChildId);
+  const currentCheckupRecords = checkupRecords.filter((r) => r.childId === currentChildId);
+  const currentReminders = reminders.filter((r) => r.childId === currentChildId);
 
   useEffect(() => {
     if (!child) {
@@ -49,15 +56,15 @@ export default function Dashboard() {
   const today = getToday();
   const monthAge = calculateMonthAge(child.birthDate);
 
-  const totalVaccines = vaccineSchedules.length;
-  const completedVaccines = vaccineSchedules.filter((v) => v.status === '已接种').length;
+  const totalVaccines = currentVaccineSchedules.length;
+  const completedVaccines = currentVaccineSchedules.filter((v) => v.status === '已接种').length;
   const vaccineProgress = totalVaccines > 0 ? Math.round((completedVaccines / totalVaccines) * 100) : 0;
 
-  const totalCheckups = checkupSchedules.length;
-  const completedCheckups = checkupSchedules.filter((c) => c.status === '已体检').length;
+  const totalCheckups = currentCheckupSchedules.length;
+  const completedCheckups = currentCheckupSchedules.filter((c) => c.status === '已体检').length;
   const checkupProgress = totalCheckups > 0 ? Math.round((completedCheckups / totalCheckups) * 100) : 0;
 
-  const upcomingReminders = reminders.filter((r) => r.status !== '已完成').slice(0, 4);
+  const upcomingReminders = currentReminders.filter((r) => r.status !== '已完成').slice(0, 4);
 
   const getStatusStyle = (days: number) => {
     if (days < 0) return { bg: 'bg-red-100', text: 'text-red-600', icon: AlertCircle, label: '已过期' };
@@ -175,7 +182,7 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <GrowthSummaryCard
             child={child}
-            checkupRecords={checkupRecords}
+            checkupRecords={currentCheckupRecords}
             metric="weight"
             label="体重"
             icon="⚖️"
@@ -183,7 +190,7 @@ export default function Dashboard() {
           />
           <GrowthSummaryCard
             child={child}
-            checkupRecords={checkupRecords}
+            checkupRecords={currentCheckupRecords}
             metric="height"
             label="身高"
             icon="📏"
@@ -191,7 +198,7 @@ export default function Dashboard() {
           />
           <GrowthSummaryCard
             child={child}
-            checkupRecords={checkupRecords}
+            checkupRecords={currentCheckupRecords}
             metric="headCircumference"
             label="头围"
             icon="🧠"
@@ -292,7 +299,7 @@ export default function Dashboard() {
             最近记录
           </h3>
           <div className="space-y-3 max-h-64 overflow-y-auto">
-            {[...vaccineRecords, ...checkupRecords]
+            {[...currentVaccineRecords, ...currentCheckupRecords]
               .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
               .slice(0, 5)
               .map((record) => (
@@ -316,7 +323,7 @@ export default function Dashboard() {
                   </div>
                 </div>
               ))}
-            {vaccineRecords.length === 0 && checkupRecords.length === 0 && (
+            {currentVaccineRecords.length === 0 && currentCheckupRecords.length === 0 && (
               <div className="text-center py-8 text-slate-400 text-sm">
                 还没有记录，完成接种后记得添加哦~
               </div>

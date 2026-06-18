@@ -12,6 +12,7 @@ import {
   Check,
   Clock,
   AlertCircle,
+  Baby,
 } from 'lucide-react';
 import { useAppStore } from '@/store';
 import type { Reminder } from '@/types';
@@ -22,37 +23,52 @@ import {
 } from '@/utils/dateUtils';
 
 type FilterType = 'all' | 'pending' | 'notified' | 'completed';
+type BabyFilterType = 'all' | 'current';
 
 export default function RemindersPage() {
   const navigate = useNavigate();
   const {
-    child,
+    children,
+    currentChildId,
     reminders,
     settings,
     updateSettings,
     markReminderComplete,
     refreshReminders,
+    switchChild,
   } = useAppStore();
 
   const [filter, setFilter] = useState<FilterType>('all');
+  const [babyFilter, setBabyFilter] = useState<BabyFilterType>('all');
   const [showSettings, setShowSettings] = useState(false);
   const [tempDays, setTempDays] = useState(settings.reminderDaysBefore);
   const [notificationGranted, setNotificationGranted] = useState(false);
 
+  const currentChild = children.find((c) => c.id === currentChildId) || null;
+
   useEffect(() => {
-    if (!child) navigate('/child-info');
+    if (children.length === 0) navigate('/child-info');
     refreshReminders();
 
     if ('Notification' in window) {
       setNotificationGranted(Notification.permission === 'granted');
     }
-  }, [child, navigate, refreshReminders]);
+  }, [children.length, navigate, refreshReminders]);
 
-  if (!child) return null;
+  if (children.length === 0) return null;
 
   const today = getToday();
 
+  const getChildById = (childId: string) => {
+    return children.find((c) => c.id === childId);
+  };
+
+  const getGenderEmoji = (gender: '男' | '女') => {
+    return gender === '男' ? '👦' : '👧';
+  };
+
   const filteredReminders = reminders.filter((r) => {
+    if (babyFilter === 'current' && r.childId !== currentChildId) return false;
     if (filter === 'pending') return r.status === '待提醒';
     if (filter === 'notified') return r.status === '已提醒';
     if (filter === 'completed') return r.status === '已完成';
@@ -109,11 +125,20 @@ export default function RemindersPage() {
     };
   };
 
+  const displayReminders = babyFilter === 'all' ? reminders : reminders.filter((r) => r.childId === currentChildId);
+
   const stats = {
-    total: reminders.length,
-    pending: reminders.filter((r) => r.status === '待提醒').length,
-    notified: reminders.filter((r) => r.status === '已提醒').length,
-    completed: reminders.filter((r) => r.status === '已完成').length,
+    total: displayReminders.length,
+    pending: displayReminders.filter((r) => r.status === '待提醒').length,
+    notified: displayReminders.filter((r) => r.status === '已提醒').length,
+    completed: displayReminders.filter((r) => r.status === '已完成').length,
+  };
+
+  const handleReminderClick = (reminder: Reminder) => {
+    if (reminder.childId !== currentChildId) {
+      switchChild(reminder.childId);
+    }
+    navigate(reminder.type === 'vaccine' ? '/vaccine-schedule' : '/checkup-schedule');
   };
 
   return (
@@ -125,7 +150,12 @@ export default function RemindersPage() {
             提醒中心
           </h1>
           <p className="text-slate-500 mt-1">
-            系统自动在到期前 {settings.reminderDaysBefore} 天提醒您，共 {reminders.length} 条提醒
+            系统自动在到期前 {settings.reminderDaysBefore} 天提醒您
+            {babyFilter === 'all' ? (
+              <span>，共 {reminders.length} 条提醒（{children.length} 个宝宝）</span>
+            ) : (
+              <span>，当前宝宝共 {displayReminders.length} 条提醒</span>
+            )}
           </p>
         </div>
 
@@ -140,6 +170,38 @@ export default function RemindersPage() {
           提醒设置
         </button>
       </div>
+
+      {children.length > 1 && (
+        <div className="flex bg-white rounded-xl p-1 shadow-soft border border-slate-100 w-fit">
+          {[
+            { key: 'all' as BabyFilterType, label: '全部宝宝', count: reminders.length, icon: Baby },
+            { key: 'current' as BabyFilterType, label: currentChild?.name || '当前宝宝', count: displayReminders.length },
+          ].map((f) => {
+            const Icon = f.icon;
+            return (
+              <button
+                key={f.key}
+                onClick={() => setBabyFilter(f.key)}
+                className={`px-5 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${
+                  babyFilter === f.key
+                    ? 'bg-gradient-to-r from-mint-400 to-coral-400 text-white'
+                    : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                {Icon && <Icon className="w-4 h-4" />}
+                {f.label}
+                <span
+                  className={`text-xs px-1.5 py-0.5 rounded-full ${
+                    babyFilter === f.key ? 'bg-white/20' : 'bg-slate-100'
+                  }`}
+                >
+                  {f.count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {!notificationGranted && (
         <div className="card border-2 border-amber-200 bg-amber-50/50">
@@ -235,15 +297,14 @@ export default function RemindersPage() {
             const style = getReminderStyle(reminder);
             const StatusIcon = style.icon;
             const daysToDue = getDaysBetween(today, reminder.dueDate);
+            const child = getChildById(reminder.childId);
 
             return (
               <div
                 key={reminder.id}
                 className={`card card-hover border-2 ${style.bg} animate-slide-in cursor-pointer`}
                 style={{ animationDelay: `${index * 50}ms` }}
-                onClick={() =>
-                  navigate(reminder.type === 'vaccine' ? '/vaccine-schedule' : '/checkup-schedule')
-                }
+                onClick={() => handleReminderClick(reminder)}
               >
                 <div className="flex items-center gap-4">
                   <div
@@ -280,12 +341,19 @@ export default function RemindersPage() {
                             <span className="text-red-500 font-medium">已过期 {Math.abs(daysToDue)} 天</span>
                           )}
                         </p>
-                        <p className="text-xs text-slate-400 mt-1">
-                          {reminder.type === 'vaccine' ? '💉 疫苗接种' : '🏥 儿保体检'}
-                          {reminder.status === '待提醒' && (
-                            <> · {reminder.daysBefore}天前开始提醒</>
+                        <div className="flex items-center gap-2 mt-1">
+                          <p className="text-xs text-slate-400">
+                            {reminder.type === 'vaccine' ? '💉 疫苗接种' : '🏥 儿保体检'}
+                            {reminder.status === '待提醒' && (
+                              <> · {reminder.daysBefore}天前开始提醒</>
+                            )}
+                          </p>
+                          {babyFilter === 'all' && child && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-slate-100 text-slate-600">
+                              {getGenderEmoji(child.gender)} {child.name}
+                            </span>
                           )}
-                        </p>
+                        </div>
                       </div>
 
                       <div className="flex items-center gap-3 flex-shrink-0">

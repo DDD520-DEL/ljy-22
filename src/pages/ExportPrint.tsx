@@ -43,11 +43,17 @@ const templateInfo: Record<TemplateType, { name: string; desc: string; icon: JSX
 export default function ExportPrintPage() {
   const navigate = useNavigate();
   const {
-    child,
+    children,
+    currentChildId,
     vaccineSchedules,
     vaccineRecords,
     checkupRecords,
   } = useAppStore();
+
+  const child = children.find((c) => c.id === currentChildId) || null;
+  const currentVaccineSchedules = vaccineSchedules.filter((s) => s.childId === currentChildId);
+  const currentVaccineRecords = vaccineRecords.filter((r) => r.childId === currentChildId);
+  const currentCheckupRecords = checkupRecords.filter((r) => r.childId === currentChildId);
 
   const [template, setTemplate] = useState<TemplateType>('nursery');
   const [showPreview, setShowPreview] = useState(true);
@@ -59,29 +65,29 @@ export default function ExportPrintPage() {
   });
 
   const filterRecordsByTemplate = () => {
-    let filteredVaccineRecords = [...vaccineRecords];
-    let filteredCheckupRecords = [...checkupRecords];
+    let filteredVaccineRecords = [...currentVaccineRecords];
+    let filteredCheckupRecords = [...currentCheckupRecords];
     let maxMonthAge = Infinity;
 
     if (template === 'nursery') {
       maxMonthAge = 36;
       filteredVaccineRecords = filteredVaccineRecords.filter((r) => {
-        const schedule = vaccineSchedules.find((s) => s.id === r.scheduleId);
+        const schedule = currentVaccineSchedules.find((s) => s.id === r.scheduleId);
         return schedule && schedule.monthAge <= maxMonthAge;
       });
       filteredCheckupRecords = filteredCheckupRecords.filter((r) => r.monthAge <= maxMonthAge);
     } else if (template === 'school') {
       maxMonthAge = 84;
       filteredVaccineRecords = filteredVaccineRecords.filter((r) => {
-        const schedule = vaccineSchedules.find((s) => s.id === r.scheduleId);
+        const schedule = currentVaccineSchedules.find((s) => s.id === r.scheduleId);
         return schedule && schedule.category === '一类' && schedule.monthAge <= maxMonthAge;
       });
       filteredCheckupRecords = filteredCheckupRecords.filter((r) => r.monthAge <= maxMonthAge);
     }
 
     filteredVaccineRecords.sort((a, b) => {
-      const sa = vaccineSchedules.find((s) => s.id === a.scheduleId);
-      const sb = vaccineSchedules.find((s) => s.id === b.scheduleId);
+      const sa = currentVaccineSchedules.find((s) => s.id === a.scheduleId);
+      const sb = currentVaccineSchedules.find((s) => s.id === b.scheduleId);
       return (sa?.monthAge || 0) - (sb?.monthAge || 0);
     });
 
@@ -95,7 +101,7 @@ export default function ExportPrintPage() {
     const maxMonthAge = template === 'nursery' ? 36 : 84;
     const category = template === 'school' ? '一类' : undefined;
 
-    return vaccineSchedules.filter((s) => {
+    return currentVaccineSchedules.filter((s) => {
       if (s.status === '已接种') return false;
       if (s.monthAge > maxMonthAge) return false;
       if (category && s.category !== category) return false;
@@ -406,7 +412,7 @@ export default function ExportPrintPage() {
                         </thead>
                         <tbody>
                           {filteredVaccineRecords.map((r, idx) => {
-                            const schedule = vaccineSchedules.find((s) => s.id === r.scheduleId);
+                            const schedule = currentVaccineSchedules.find((s) => s.id === r.scheduleId);
                             return (
                               <tr key={r.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
                                 <td className="border border-slate-300 px-3 py-2 text-sm text-slate-600 text-center">
