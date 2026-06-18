@@ -168,7 +168,7 @@ export default function CheckupSchedulePage() {
     e.preventDefault();
     if (!selectedSchedule) return;
 
-    addCheckupRecord({
+    const newRecord = addCheckupRecord({
       ...recordForm,
       scheduleId: selectedSchedule.id,
       monthAge: selectedSchedule.monthAge,
@@ -177,14 +177,14 @@ export default function CheckupSchedulePage() {
     const abnormalEntries = Object.entries(abnormalSelections).filter(
       ([, v]) => v.checked && v.detail.trim()
     );
-    if (abnormalEntries.length > 0) {
+    if (abnormalEntries.length > 0 && newRecord) {
       const recheckDate = addDays(recordForm.checkupDate, 30);
       const items = abnormalEntries.map(([itemName, v]) => {
         const matchedItem = selectedSchedule.items.find((i) => i.name === itemName);
         return {
-          checkupRecordId: '',
+          checkupRecordId: newRecord.id,
           itemName,
-          category: matchedItem?.category || '其他' as CheckupItem['category'],
+          category: (matchedItem?.category || '其他') as CheckupItem['category'],
           abnormalDetail: v.detail.trim(),
           status: '待复查' as const,
           recheckRemindDate: recheckDate,

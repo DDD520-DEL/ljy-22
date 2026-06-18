@@ -46,7 +46,7 @@ interface AppState {
   updateVaccineRecord: (id: string, data: Partial<VaccineRecord>) => void;
   deleteVaccineRecord: (id: string) => void;
 
-  addCheckupRecord: (record: Omit<CheckupRecord, 'id' | 'childId' | 'createdAt'>) => void;
+  addCheckupRecord: (record: Omit<CheckupRecord, 'id' | 'childId' | 'createdAt'>) => CheckupRecord | null;
   updateCheckupRecord: (id: string, data: Partial<CheckupRecord>) => void;
   deleteCheckupRecord: (id: string) => void;
 
@@ -268,7 +268,7 @@ export const useAppStore = create<AppState>()(
 
       addCheckupRecord: (record) => {
         const state = get();
-        if (!state.currentChildId) return;
+        if (!state.currentChildId) return null;
 
         const newRecord: CheckupRecord = {
           ...record,
@@ -287,6 +287,7 @@ export const useAppStore = create<AppState>()(
         });
 
         get().refreshReminders();
+        return newRecord;
       },
 
       updateCheckupRecord: (id, data) => {
@@ -355,6 +356,7 @@ export const useAppStore = create<AppState>()(
         if (state.children.length === 0) return;
 
         const allReminders: Reminder[] = [];
+        const abnormalReminders = state.reminders.filter((r) => r.type === 'abnormal');
         for (const child of state.children) {
           const childVaccineSchedules = state.vaccineSchedules.filter((s) => s.childId === child.id);
           const childCheckupSchedules = state.checkupSchedules.filter((s) => s.childId === child.id);
@@ -367,7 +369,11 @@ export const useAppStore = create<AppState>()(
           allReminders.push(...childReminders);
         }
 
-        set({ reminders: allReminders });
+        const childAbnormalReminders = abnormalReminders.filter((ar) =>
+          state.children.some((c) => c.id === ar.childId)
+        );
+
+        set({ reminders: [...childAbnormalReminders, ...allReminders] });
       },
 
       markReminderComplete: (id) => {
@@ -437,6 +443,7 @@ export const useAppStore = create<AppState>()(
 
         if (state.children.length > 0 && settings.reminderDaysBefore !== undefined) {
           const allReminders: Reminder[] = [];
+          const abnormalReminders = state.reminders.filter((r) => r.type === 'abnormal');
           for (const child of state.children) {
             const childVaccineSchedules = state.vaccineSchedules.filter((s) => s.childId === child.id);
             const childCheckupSchedules = state.checkupSchedules.filter((s) => s.childId === child.id);
@@ -448,7 +455,10 @@ export const useAppStore = create<AppState>()(
             );
             allReminders.push(...childReminders);
           }
-          set({ settings: newSettings, reminders: allReminders });
+          const childAbnormalReminders = abnormalReminders.filter((ar) =>
+            state.children.some((c) => c.id === ar.childId)
+          );
+          set({ settings: newSettings, reminders: [...childAbnormalReminders, ...allReminders] });
         } else {
           set({ settings: newSettings });
         }
