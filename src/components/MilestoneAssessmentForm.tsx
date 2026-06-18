@@ -212,7 +212,7 @@ export default function MilestoneAssessmentForm({
             </span>
           </div>
 
-          <RadarChart data={radarData} size={280} />
+          <RadarChart data={radarData} size={280} totalScore={totalScore} />
 
           <div className="mt-4 pt-4 border-t border-slate-100">
             <div className="flex items-center justify-between mb-2">

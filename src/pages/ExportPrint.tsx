@@ -670,6 +670,7 @@ export default function ExportPrintPage() {
                           <RadarChart
                             data={DEVELOPMENT_DIMENSIONS.map((dim) => ({ label: dim, value: a.scores[dim] }))}
                             size={260}
+                            totalScore={a.totalScore}
                           />
                           <p className="text-xs text-slate-500 mt-3 leading-relaxed border-t border-slate-100 pt-3">
                             {a.summary}

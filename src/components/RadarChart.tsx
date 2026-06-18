@@ -9,6 +9,7 @@ interface RadarChartProps {
   max?: number;
   levels?: number;
   showValues?: boolean;
+  totalScore?: number;
 }
 
 function getScoreColor(value: number): string {
@@ -24,6 +25,7 @@ export default function RadarChart({
   max = 100,
   levels = 5,
   showValues = true,
+  totalScore,
 }: RadarChartProps) {
   const n = data.length;
   const cx = size / 2;
@@ -65,8 +67,12 @@ export default function RadarChart({
     .map((p) => `${p.x.toFixed(2)},${p.y.toFixed(2)}`)
     .join(' ');
 
-  const averageScore =
-    n > 0 ? data.reduce((sum, d) => sum + d.value, 0) / n : 0;
+  const displayScore =
+    totalScore !== undefined
+      ? totalScore
+      : n > 0
+        ? data.reduce((sum, d) => sum + d.value, 0) / n
+        : 0;
 
   return (
     <div className="w-full flex flex-col items-center">
@@ -190,9 +196,9 @@ export default function RadarChart({
           textAnchor="middle"
           fontSize="20"
           fontWeight="700"
-          fill={getScoreColor(averageScore)}
+          fill={getScoreColor(displayScore)}
         >
-          {Math.round(averageScore)}
+          {Math.round(displayScore)}
         </text>
       </svg>
     </div>
