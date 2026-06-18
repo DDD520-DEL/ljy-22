@@ -23,7 +23,7 @@ import RadarChart from '@/components/RadarChart';
 import { DEVELOPMENT_DIMENSIONS } from '@/data/milestones';
 import { calculatePercentileRank, getGrowthData, getGrowthStatus } from '@/data/growthStandards';
 
-type TemplateType = 'nursery' | 'school' | 'full';
+type TemplateType = 'nursery' | 'school' | 'full' | 'certificate';
 
 const templateInfo: Record<TemplateType, { name: string; desc: string; icon: JSX.Element }> = {
   nursery: {
@@ -40,6 +40,11 @@ const templateInfo: Record<TemplateType, { name: string; desc: string; icon: JSX
     name: '完整版',
     desc: '完整接种与体检记录，适合存档和查阅',
     icon: <ClipboardList className="w-6 h-6" />,
+  },
+  certificate: {
+    name: '接种证版',
+    desc: '国家预防接种证格式，按疫苗种类分组一览表',
+    icon: <Target className="w-6 h-6" />,
   },
 };
 
@@ -90,6 +95,12 @@ export default function ExportPrintPage() {
         return schedule && schedule.category === '一类' && schedule.monthAge <= maxMonthAge;
       });
       filteredCheckupRecords = filteredCheckupRecords.filter((r) => r.monthAge <= maxMonthAge);
+    } else if (template === 'certificate') {
+      maxMonthAge = Infinity;
+      filteredVaccineRecords = filteredVaccineRecords.filter((r) => {
+        const schedule = currentVaccineSchedules.find((s) => s.id === r.scheduleId);
+        return schedule && schedule.status === '已接种';
+      });
     }
 
     filteredVaccineRecords.sort((a, b) => {
@@ -118,6 +129,47 @@ export default function ExportPrintPage() {
 
   const { filteredVaccineRecords, filteredCheckupRecords } = filterRecordsByTemplate();
   const pendingVaccines = getPendingVaccines();
+
+  const groupedVaccineRecords = useMemo(() => {
+    const groups: Record<string, {
+      vaccineName: string;
+      category: '一类' | '二类';
+      preventDisease: string;
+      records: Array<{
+        record: typeof filteredVaccineRecords[0];
+        schedule: typeof currentVaccineSchedules[0] | undefined;
+      }>;
+    }> = {};
+
+    filteredVaccineRecords.forEach((record) => {
+      const schedule = currentVaccineSchedules.find((s) => s.id === record.scheduleId);
+      if (!schedule) return;
+
+      if (!groups[schedule.vaccineName]) {
+        groups[schedule.vaccineName] = {
+          vaccineName: schedule.vaccineName,
+          category: schedule.category,
+          preventDisease: schedule.preventDisease,
+          records: [],
+        };
+      }
+
+      groups[schedule.vaccineName].records.push({ record, schedule });
+    });
+
+    return Object.values(groups).map((group) => ({
+      ...group,
+      records: group.records.sort((a, b) => {
+        const doseA = a.schedule?.doseNumber || 0;
+        const doseB = b.schedule?.doseNumber || 0;
+        return doseA - doseB;
+      }),
+    })).sort((a, b) => {
+      const minMonthA = Math.min(...a.records.map((r) => r.schedule?.monthAge || 0));
+      const minMonthB = Math.min(...b.records.map((r) => r.schedule?.monthAge || 0));
+      return minMonthA - minMonthB;
+    });
+  }, [filteredVaccineRecords, currentVaccineSchedules]);
 
   const milestoneMaxMonthAge = template === 'nursery' ? 36 : 84;
   const filteredMilestoneAssessments = currentMilestoneAssessments
@@ -225,7 +277,7 @@ export default function ExportPrintPage() {
       </div>
 
       <div className="no-print">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {(Object.keys(templateInfo) as TemplateType[]).map((key) => {
             const info = templateInfo[key];
             const active = template === key;
@@ -353,11 +405,13 @@ export default function ExportPrintPage() {
                 {template === 'nursery' && '儿童入托预防接种证查验证明'}
                 {template === 'school' && '儿童入学预防接种证查验证明'}
                 {template === 'full' && '儿童疫苗接种与健康体检档案'}
+                {template === 'certificate' && '预防接种证（电子化）'}
               </h1>
               <p className="text-slate-500">
                 {template === 'nursery' && '（附 0-3 岁儿童健康检查记录）'}
                 {template === 'school' && '（附国家免疫规划一类疫苗接种清单）'}
                 {template === 'full' && '（完整版 · 全程记录）'}
+                {template === 'certificate' && '（国家免疫规划疫苗接种记录一览表）'}
               </p>
               <div className="text-sm text-slate-400 mt-4">
                 生成日期：{formatDate(new Date(), 'YYYY年MM月DD日')}
@@ -405,7 +459,7 @@ export default function ExportPrintPage() {
               >
                 <h2 className="text-xl font-bold text-slate-700 flex items-center gap-2">
                   <span className="w-1 h-6 bg-coral-400 rounded-full"></span>
-                  疫苗接种记录
+                  {template === 'certificate' ? '疫苗接种记录一览表' : '疫苗接种记录'}
                 </h2>
                 {expandedSections.vaccine ? (
                   <ChevronUp className="w-5 h-5 text-slate-400" />
@@ -415,113 +469,202 @@ export default function ExportPrintPage() {
               </div>
               <h2 className="print-only text-xl font-bold text-slate-700 mb-4 flex items-center gap-2">
                 <span className="w-1 h-6 bg-coral-400 rounded-full"></span>
-                疫苗接种记录
+                {template === 'certificate' ? '疫苗接种记录一览表' : '疫苗接种记录'}
               </h2>
 
               {(expandedSections.vaccine) && (
                 <>
-                  {filteredVaccineRecords.length === 0 ? (
-                    <div className="text-center py-8 text-slate-400">暂无接种记录</div>
-                  ) : (
-                    <div className="overflow-x-auto">
-                      <table className="w-full border-collapse">
-                        <thead>
-                          <tr className="bg-slate-100">
-                            <th className="border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-600">序号</th>
-                            <th className="border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-600">疫苗名称</th>
-                            <th className="border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-600">剂次</th>
-                            <th className="border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-600">接种月龄</th>
-                            <th className="border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-600">接种日期</th>
-                            <th className="border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-600">接种部位</th>
-                            <th className="border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-600">生产厂家</th>
-                            <th className="border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-600">疫苗批号</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {filteredVaccineRecords.map((r, idx) => {
-                            const schedule = currentVaccineSchedules.find((s) => s.id === r.scheduleId);
-                            return (
-                              <tr key={r.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
-                                <td className="border border-slate-300 px-3 py-2 text-sm text-slate-600 text-center">
-                                  {idx + 1}
-                                </td>
-                                <td className="border border-slate-300 px-3 py-2 text-sm text-slate-700">
-                                  {r.vaccineName}
-                                  {schedule?.category === '二类' && (
-                                    <span className="text-xs text-slate-400 ml-1">(二类)</span>
-                                  )}
-                                </td>
-                                <td className="border border-slate-300 px-3 py-2 text-sm text-slate-600 text-center">
-                                  {schedule ? `第${schedule.doseNumber}剂` : '-'}
-                                </td>
-                                <td className="border border-slate-300 px-3 py-2 text-sm text-slate-600 text-center">
-                                  {schedule ? formatMonthAge(schedule.monthAge) : '-'}
-                                </td>
-                                <td className="border border-slate-300 px-3 py-2 text-sm text-slate-600 text-center">
-                                  {formatDate(r.vaccinationDate, 'YYYY年MM月DD日')}
-                                </td>
-                                <td className="border border-slate-300 px-3 py-2 text-sm text-slate-600 text-center">
-                                  {r.site}
-                                </td>
-                                <td className="border border-slate-300 px-3 py-2 text-sm text-slate-600">
-                                  {r.manufacturer || '-'}
-                                </td>
-                                <td className="border border-slate-300 px-3 py-2 text-sm text-slate-600">
-                                  {r.batchNumber || '-'}
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-
-                  {pendingVaccines.length > 0 && (
-                    <div className="mt-6 bg-amber-50 border border-amber-200 rounded-lg p-4">
-                      <h3 className="font-semibold text-amber-700 mb-2">⚠️ 待补种疫苗（未完成）</h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                        {pendingVaccines.map((p) => (
-                          <div
-                            key={p.id}
-                            className="flex items-center justify-between bg-white border border-amber-100 rounded px-3 py-2"
-                          >
-                            <span className="text-sm text-slate-700">
-                              {p.vaccineName}（第{p.doseNumber}剂）
-                            </span>
-                            <span className="text-xs text-amber-600">
-                              建议 {formatDate(p.plannedDate, 'YYYY年MM月DD日')}
-                            </span>
+                  {template === 'certificate' ? (
+                    groupedVaccineRecords.length === 0 ? (
+                      <div className="text-center py-8 text-slate-400">暂无接种记录</div>
+                    ) : (
+                      <div className="space-y-4">
+                        {groupedVaccineRecords.map((group, groupIdx) => (
+                          <div key={group.vaccineName} className="border border-slate-200 rounded-lg overflow-hidden">
+                            <div className="bg-slate-100 px-4 py-3 flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <span className="w-8 h-8 rounded-full bg-mint-500 text-white flex items-center justify-center font-bold text-sm">
+                                  {groupIdx + 1}
+                                </span>
+                                <div>
+                                  <h3 className="font-semibold text-slate-800 flex items-center gap-2">
+                                    {group.vaccineName}
+                                    <span
+                                      className={`px-2 py-0.5 rounded text-xs font-medium ${
+                                        group.category === '一类'
+                                          ? 'bg-blue-100 text-blue-700'
+                                          : 'bg-amber-100 text-amber-700'
+                                      }`}
+                                    >
+                                      {group.category}
+                                    </span>
+                                  </h3>
+                                  <p className="text-xs text-slate-500">预防：{group.preventDisease}</p>
+                                </div>
+                              </div>
+                              <div className="text-sm text-slate-500">
+                                已接种 <span className="font-bold text-mint-600">{group.records.length}</span> 剂
+                              </div>
+                            </div>
+                            <div className="overflow-x-auto">
+                              <table className="w-full border-collapse">
+                                <thead>
+                                  <tr className="bg-slate-50">
+                                    <th className="border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 w-16 text-center">剂次</th>
+                                    <th className="border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 w-24 text-center">接种月龄</th>
+                                    <th className="border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 text-center">接种日期</th>
+                                    <th className="border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600">生产厂家</th>
+                                    <th className="border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600">疫苗批号</th>
+                                    <th className="border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 w-28 text-center">接种部位</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {group.records.map((item, idx) => (
+                                    <tr key={item.record.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
+                                      <td className="border border-slate-200 px-3 py-2 text-sm text-slate-700 text-center font-medium">
+                                        第{item.schedule?.doseNumber || 0}剂
+                                      </td>
+                                      <td className="border border-slate-200 px-3 py-2 text-sm text-slate-600 text-center">
+                                        {item.schedule ? formatMonthAge(item.schedule.monthAge) : '-'}
+                                      </td>
+                                      <td className="border border-slate-200 px-3 py-2 text-sm text-slate-700 text-center font-medium">
+                                        {formatDate(item.record.vaccinationDate, 'YYYY年MM月DD日')}
+                                      </td>
+                                      <td className="border border-slate-200 px-3 py-2 text-sm text-slate-700">
+                                        {item.record.manufacturer || '-'}
+                                      </td>
+                                      <td className="border border-slate-200 px-3 py-2 text-sm text-slate-700 font-mono">
+                                        {item.record.batchNumber || '-'}
+                                      </td>
+                                      <td className="border border-slate-200 px-3 py-2 text-sm text-slate-600 text-center">
+                                        {item.record.site || '-'}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
                           </div>
                         ))}
+
+                        <div className="mt-6 bg-amber-50 border border-amber-200 rounded-lg p-4">
+                          <h3 className="font-semibold text-amber-800 mb-2">说明</h3>
+                          <p className="text-sm text-amber-700 leading-relaxed">
+                            1. 本接种证记录由系统根据已完成的接种记录自动生成，具体信息以接种单位档案为准。<br />
+                            2. 疫苗批号和生产厂家由接种时录入，如信息不全请联系接种单位补充。<br />
+                            3. 入托、入学时可凭此打印件或前往接种单位开具正式查验证明。<br />
+                            4. 国家免疫规划一类疫苗由政府免费提供，二类疫苗为公民自费且自愿接种的其他疫苗。
+                          </p>
+                        </div>
                       </div>
-                    </div>
+                    )
+                  ) : (
+                    <>
+                      {filteredVaccineRecords.length === 0 ? (
+                        <div className="text-center py-8 text-slate-400">暂无接种记录</div>
+                      ) : (
+                        <div className="overflow-x-auto">
+                          <table className="w-full border-collapse">
+                            <thead>
+                              <tr className="bg-slate-100">
+                                <th className="border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-600">序号</th>
+                                <th className="border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-600">疫苗名称</th>
+                                <th className="border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-600">剂次</th>
+                                <th className="border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-600">接种月龄</th>
+                                <th className="border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-600">接种日期</th>
+                                <th className="border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-600">接种部位</th>
+                                <th className="border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-600">生产厂家</th>
+                                <th className="border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-600">疫苗批号</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {filteredVaccineRecords.map((r, idx) => {
+                                const schedule = currentVaccineSchedules.find((s) => s.id === r.scheduleId);
+                                return (
+                                  <tr key={r.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
+                                    <td className="border border-slate-300 px-3 py-2 text-sm text-slate-600 text-center">
+                                      {idx + 1}
+                                    </td>
+                                    <td className="border border-slate-300 px-3 py-2 text-sm text-slate-700">
+                                      {r.vaccineName}
+                                      {schedule?.category === '二类' && (
+                                        <span className="text-xs text-slate-400 ml-1">(二类)</span>
+                                      )}
+                                    </td>
+                                    <td className="border border-slate-300 px-3 py-2 text-sm text-slate-600 text-center">
+                                      {schedule ? `第${schedule.doseNumber}剂` : '-'}
+                                    </td>
+                                    <td className="border border-slate-300 px-3 py-2 text-sm text-slate-600 text-center">
+                                      {schedule ? formatMonthAge(schedule.monthAge) : '-'}
+                                    </td>
+                                    <td className="border border-slate-300 px-3 py-2 text-sm text-slate-600 text-center">
+                                      {formatDate(r.vaccinationDate, 'YYYY年MM月DD日')}
+                                    </td>
+                                    <td className="border border-slate-300 px-3 py-2 text-sm text-slate-600 text-center">
+                                      {r.site}
+                                    </td>
+                                    <td className="border border-slate-300 px-3 py-2 text-sm text-slate-600">
+                                      {r.manufacturer || '-'}
+                                    </td>
+                                    <td className="border border-slate-300 px-3 py-2 text-sm text-slate-600">
+                                      {r.batchNumber || '-'}
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+
+                      {pendingVaccines.length > 0 && (
+                        <div className="mt-6 bg-amber-50 border border-amber-200 rounded-lg p-4">
+                          <h3 className="font-semibold text-amber-700 mb-2">⚠️ 待补种疫苗（未完成）</h3>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                            {pendingVaccines.map((p) => (
+                              <div
+                                key={p.id}
+                                className="flex items-center justify-between bg-white border border-amber-100 rounded px-3 py-2"
+                              >
+                                <span className="text-sm text-slate-700">
+                                  {p.vaccineName}（第{p.doseNumber}剂）
+                                </span>
+                                <span className="text-xs text-amber-600">
+                                  建议 {formatDate(p.plannedDate, 'YYYY年MM月DD日')}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </>
                   )}
                 </>
               )}
             </div>
 
-            <div className="mb-10">
-              <div
-                className="no-print flex items-center justify-between mb-4 cursor-pointer"
-                onClick={() => toggleSection('checkup')}
-              >
-                <h2 className="text-xl font-bold text-slate-700 flex items-center gap-2">
+            {template !== 'certificate' && (
+              <div className="mb-10">
+                <div
+                  className="no-print flex items-center justify-between mb-4 cursor-pointer"
+                  onClick={() => toggleSection('checkup')}
+                >
+                  <h2 className="text-xl font-bold text-slate-700 flex items-center gap-2">
+                    <span className="w-1 h-6 bg-blue-400 rounded-full"></span>
+                    儿保体检记录
+                  </h2>
+                  {expandedSections.checkup ? (
+                    <ChevronUp className="w-5 h-5 text-slate-400" />
+                  ) : (
+                    <ChevronDown className="w-5 h-5 text-slate-400" />
+                  )}
+                </div>
+                <h2 className="print-only text-xl font-bold text-slate-700 mb-4 flex items-center gap-2">
                   <span className="w-1 h-6 bg-blue-400 rounded-full"></span>
                   儿保体检记录
                 </h2>
-                {expandedSections.checkup ? (
-                  <ChevronUp className="w-5 h-5 text-slate-400" />
-                ) : (
-                  <ChevronDown className="w-5 h-5 text-slate-400" />
-                )}
-              </div>
-              <h2 className="print-only text-xl font-bold text-slate-700 mb-4 flex items-center gap-2">
-                <span className="w-1 h-6 bg-blue-400 rounded-full"></span>
-                儿保体检记录
-              </h2>
 
-              {(expandedSections.checkup) && (
+                {(expandedSections.checkup) && (
                 <>
                   {filteredCheckupRecords.length === 0 ? (
                     <div className="text-center py-8 text-slate-400">暂无体检记录</div>
@@ -575,9 +718,10 @@ export default function ExportPrintPage() {
                   )}
                 </>
               )}
-            </div>
+              </div>
+            )}
 
-            {includeMilestone && filteredMilestoneAssessments.length > 0 && (
+            {template !== 'certificate' && includeMilestone && filteredMilestoneAssessments.length > 0 && (
               <div className="mb-10">
                 <div
                   className="no-print flex items-center justify-between mb-4 cursor-pointer"
@@ -688,7 +832,7 @@ export default function ExportPrintPage() {
               </div>
             )}
 
-            {includeGrowth && hasGrowthData && (
+            {template !== 'certificate' && includeGrowth && hasGrowthData && (
               <div className="mb-10 page-break-before">
                 <div
                   className="no-print flex items-center justify-between mb-4 cursor-pointer"

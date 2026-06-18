@@ -14,6 +14,7 @@ import {
   X,
   UserPlus,
   Activity,
+  Shield,
 } from 'lucide-react';
 import { useAppStore } from '@/store';
 
@@ -21,6 +22,7 @@ const navItems = [
   { path: '/', icon: Home, label: '首页概览' },
   { path: '/child-info', icon: Baby, label: '宝宝信息' },
   { path: '/vaccine-schedule', icon: Syringe, label: '疫苗接种' },
+  { path: '/vaccine-certificate', icon: Shield, label: '电子接种证' },
   { path: '/checkup-schedule', icon: Stethoscope, label: '儿保体检' },
   { path: '/reaction-diary', icon: Activity, label: '反应日记' },
   { path: '/reminders', icon: Bell, label: '提醒中心' },

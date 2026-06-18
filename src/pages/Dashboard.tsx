@@ -12,6 +12,7 @@ import {
   CheckCircle,
   Clock,
   Activity,
+  Shield,
 } from 'lucide-react';
 import { useAppStore } from '@/store';
 import {
@@ -26,6 +27,7 @@ import { GrowthSummaryCard } from '@/components/GrowthSummaryCard';
 
 const quickLinks = [
   { path: '/vaccine-schedule', icon: Syringe, label: '疫苗接种', color: 'from-mint-400 to-mint-500', emoji: '💉' },
+  { path: '/vaccine-certificate', icon: Shield, label: '电子接种证', color: 'from-emerald-400 to-emerald-500', emoji: '📘' },
   { path: '/checkup-schedule', icon: Stethoscope, label: '儿保体检', color: 'from-coral-400 to-coral-500', emoji: '🏥' },
   { path: '/reaction-diary', icon: Activity, label: '反应日记', color: 'from-teal-400 to-teal-500', emoji: '📝' },
   { path: '/reminders', icon: Bell, label: '提醒中心', color: 'from-amber-400 to-amber-500', emoji: '🔔' },
@@ -323,7 +325,7 @@ export default function Dashboard() {
           <span className="text-2xl">🚀</span>
           快捷入口
         </h3>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4">
           {quickLinks.map((link) => {
             const Icon = link.icon;
             return (
