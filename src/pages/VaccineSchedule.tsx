@@ -10,6 +10,8 @@ import {
   MapPin,
   AlertCircle,
   Info,
+  Activity,
+  ExternalLink,
 } from 'lucide-react';
 import { useAppStore } from '@/store';
 import type { VaccineSchedule as VaccineScheduleType, VaccineRecord } from '@/types';
@@ -30,6 +32,7 @@ export default function VaccineSchedulePage() {
     currentChildId,
     vaccineSchedules,
     vaccineRecords,
+    reactionDiaries,
     addVaccineRecord,
     updateVaccineScheduleStatus,
   } = useAppStore();
@@ -327,6 +330,30 @@ export default function VaccineSchedulePage() {
                               {record.reaction}
                             </p>
                           )}
+
+                          {(() => {
+                            const diary = reactionDiaries.find((d) => d.vaccineRecordId === record.id);
+                            if (!diary) return null;
+                            return (
+                              <div
+                                className="mt-3 p-2.5 rounded-xl bg-gradient-to-r from-mint-50 to-coral-50 border border-mint-200 cursor-pointer hover:shadow-sm transition-all"
+                                onClick={() => navigate(`/reaction-diary/${diary.id}`)}
+                              >
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <Activity className="w-4 h-4 text-mint-600" />
+                                    <span className="text-xs font-medium text-mint-700">72小时反应观察日记</span>
+                                  </div>
+                                  <div className="flex items-center gap-1 text-xs text-slate-500">
+                                    {diary.status === '观察中'
+                                      ? `${diary.logs.length}条记录`
+                                      : diary.summary?.overallSeverity || '无反应'}
+                                    <ExternalLink className="w-3.5 h-3.5 text-mint-500" />
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })()}
                         </div>
                       )}
                     </div>

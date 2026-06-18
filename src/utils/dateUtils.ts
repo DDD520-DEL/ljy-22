@@ -26,6 +26,36 @@ export function addDays(date: Date | string, days: number): string {
   return formatDate(d);
 }
 
+export function addHours(date: Date | string, hours: number): string {
+  const d = typeof date === 'string' ? new Date(date) : new Date(date);
+  d.setHours(d.getHours() + hours);
+  return d.toISOString();
+}
+
+export function getHoursBetween(date1: string | Date, date2: string | Date): number {
+  const d1 = typeof date1 === 'string' ? new Date(date1) : new Date(date1);
+  const d2 = typeof date2 === 'string' ? new Date(date2) : new Date(date2);
+  const diffMs = d2.getTime() - d1.getTime();
+  return diffMs / (1000 * 60 * 60);
+}
+
+export function formatDateTime(date: Date | string): string {
+  const d = typeof date === 'string' ? new Date(date) : new Date(date);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  const hours = String(d.getHours()).padStart(2, '0');
+  const minutes = String(d.getMinutes()).padStart(2, '0');
+  return `${year}年${month}月${day}日 ${hours}:${minutes}`;
+}
+
+export function formatTime(date: Date | string): string {
+  const d = typeof date === 'string' ? new Date(date) : new Date(date);
+  const hours = String(d.getHours()).padStart(2, '0');
+  const minutes = String(d.getMinutes()).padStart(2, '0');
+  return `${hours}:${minutes}`;
+}
+
 export function formatDate(date: Date | string, format: 'YYYY-MM-DD' | 'YYYY年MM月DD日' | 'MM/DD' = 'YYYY-MM-DD'): string {
   const d = typeof date === 'string' ? new Date(date) : new Date(date);
   const year = d.getFullYear();

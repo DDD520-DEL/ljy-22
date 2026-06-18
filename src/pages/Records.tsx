@@ -12,9 +12,11 @@ import {
   Eye,
   ChevronDown,
   TrendingUp,
+  Activity,
+  ExternalLink,
 } from 'lucide-react';
 import { useAppStore } from '@/store';
-import type { VaccineRecord, CheckupRecord } from '@/types';
+import type { VaccineRecord, CheckupRecord, VaccineReactionDiary } from '@/types';
 import {
   formatDate,
   formatMonthAge,
@@ -35,6 +37,7 @@ export default function RecordsPage() {
     checkupSchedules,
     vaccineRecords,
     checkupRecords,
+    reactionDiaries,
     updateVaccineRecord,
     deleteVaccineRecord,
     updateCheckupRecord,
@@ -499,6 +502,32 @@ export default function RecordsPage() {
                             <p className="text-sm text-slate-700">{vr!.reaction}</p>
                           </div>
                         )}
+
+                        {(() => {
+                          const diary = reactionDiaries.find((d) => d.vaccineRecordId === vr!.id);
+                          if (!diary) return null;
+                          return (
+                            <div
+                              className="md:col-span-4 p-3 rounded-xl bg-gradient-to-r from-mint-50 to-coral-50 border border-mint-200 cursor-pointer hover:shadow-sm transition-all"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigate(`/reaction-diary/${diary.id}`);
+                              }}
+                            >
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <Activity className="w-4 h-4 text-mint-600" />
+                                  <span className="text-xs text-mint-700 font-medium">72小时反应观察日记</span>
+                                  <span className="text-xs text-slate-500">
+                                    · {diary.status === '观察中' ? `观察中 · ${diary.logs.length}条记录` : `已结束 · ${diary.summary?.overallSeverity || '无'}反应`}
+                                  </span>
+                                </div>
+                                <ExternalLink className="w-4 h-4 text-mint-500" />
+                              </div>
+                            </div>
+                          );
+                        })()}
+
                         {vr!.notes && (
                           <div className="md:col-span-4 p-3 rounded-xl bg-slate-50">
                             <p className="text-xs text-slate-500 font-medium mb-1">备注</p>
@@ -613,6 +642,41 @@ export default function RecordsPage() {
                       <p className="text-sm text-amber-800">{(viewingRecord as VaccineRecord).reaction}</p>
                     </div>
                   )}
+
+                  {(() => {
+                    const diary = reactionDiaries.find((d) => d.vaccineRecordId === viewingRecord.id);
+                    if (!diary) return null;
+                    
+                    return (
+                      <div
+                        className="p-4 rounded-2xl bg-gradient-to-br from-mint-50 to-coral-50 border border-mint-200 cursor-pointer hover:shadow-soft transition-all"
+                        onClick={() => {
+                          setViewingRecord(null);
+                          navigate(`/reaction-diary/${diary.id}`);
+                        }}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-mint-100 flex items-center justify-center">
+                              <Activity className="w-5 h-5 text-mint-600" />
+                            </div>
+                            <div>
+                              <p className="font-bold text-slate-700">72小时反应观察日记</p>
+                              <p className="text-xs text-slate-500">
+                                {diary.status === '观察中'
+                                  ? `观察中 · 已记录 ${diary.logs.length} 条`
+                                  : `已结束 · ${diary.summary?.overallSeverity || '无'}反应`}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1 text-mint-600 text-sm font-medium">
+                            查看日记
+                            <ExternalLink className="w-4 h-4" />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </>
               ) : (
                 <>

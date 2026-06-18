@@ -8,12 +8,16 @@ import type {
   CheckupRecord,
   Reminder,
   AppSettings,
+  VaccineReactionDiary,
+  ReactionLogEntry,
+  ReactionSummary,
 } from '@/types';
 import {
   generateVaccineSchedules,
   generateCheckupSchedules,
   generateReminders,
   generateId,
+  addHours,
 } from '@/utils/dateUtils';
 
 interface AppState {
@@ -24,6 +28,7 @@ interface AppState {
   checkupSchedules: CheckupSchedule[];
   checkupRecords: CheckupRecord[];
   reminders: Reminder[];
+  reactionDiaries: VaccineReactionDiary[];
   settings: AppSettings;
 
   get currentChild(): Child | null;
@@ -48,6 +53,12 @@ interface AppState {
 
   updateVaccineScheduleStatus: (scheduleId: string, status: VaccineSchedule['status']) => void;
   updateCheckupScheduleStatus: (scheduleId: string, status: CheckupSchedule['status']) => void;
+
+  addReactionLog: (diaryId: string, log: Omit<ReactionLogEntry, 'id' | 'createdAt'>) => void;
+  updateReactionLog: (diaryId: string, logId: string, data: Partial<ReactionLogEntry>) => void;
+  deleteReactionLog: (diaryId: string, logId: string) => void;
+  getDiaryByRecordId: (recordId: string) => VaccineReactionDiary | undefined;
+  completeDiary: (diaryId: string) => void;
 }
 
 const initialSettings: AppSettings = {
@@ -65,6 +76,7 @@ export const useAppStore = create<AppState>()(
       checkupSchedules: [],
       checkupRecords: [],
       reminders: [],
+      reactionDiaries: [],
       settings: initialSettings,
 
       get currentChild() {
@@ -140,6 +152,7 @@ export const useAppStore = create<AppState>()(
           const newVaccineRecords = state.vaccineRecords.filter((r) => r.childId !== id);
           const newCheckupRecords = state.checkupRecords.filter((r) => r.childId !== id);
           const newReminders = state.reminders.filter((r) => r.childId !== id);
+          const newReactionDiaries = state.reactionDiaries.filter((d) => d.childId !== id);
 
           let newCurrentChildId = state.currentChildId;
           if (state.currentChildId === id) {
@@ -154,6 +167,7 @@ export const useAppStore = create<AppState>()(
             vaccineRecords: newVaccineRecords,
             checkupRecords: newCheckupRecords,
             reminders: newReminders,
+            reactionDiaries: newReactionDiaries,
           };
         });
       },
@@ -180,9 +194,31 @@ export const useAppStore = create<AppState>()(
           s.id === record.scheduleId ? { ...s, status: '已接种' as const } : s
         );
 
+        const relatedSchedule = state.vaccineSchedules.find((s) => s.id === record.scheduleId);
+        const startTime = new Date(record.vaccinationDate).toISOString();
+        const endTime = addHours(startTime, 72);
+
+        const newDiary: VaccineReactionDiary = {
+          id: generateId(),
+          childId: state.currentChildId,
+          vaccineRecordId: newRecord.id,
+          scheduleId: record.scheduleId,
+          vaccineName: record.vaccineName,
+          vaccineShortName: record.vaccineShortName,
+          doseNumber: relatedSchedule?.doseNumber || 1,
+          vaccinationDate: record.vaccinationDate,
+          startTime,
+          endTime,
+          status: '观察中',
+          logs: [],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+
         set({
           vaccineRecords: [...state.vaccineRecords, newRecord],
           vaccineSchedules,
+          reactionDiaries: [...state.reactionDiaries, newDiary],
         });
 
         get().refreshReminders();
@@ -207,6 +243,7 @@ export const useAppStore = create<AppState>()(
         set({
           vaccineRecords: state.vaccineRecords.filter((r) => r.id !== id),
           vaccineSchedules,
+          reactionDiaries: state.reactionDiaries.filter((d) => d.vaccineRecordId !== id),
         });
 
         get().refreshReminders();
@@ -326,6 +363,125 @@ export const useAppStore = create<AppState>()(
           ),
         }));
         get().refreshReminders();
+      },
+
+      addReactionLog: (diaryId, log) => {
+        set((state) => ({
+          reactionDiaries: state.reactionDiaries.map((d) =>
+            d.id === diaryId
+              ? {
+                  ...d,
+                  logs: [...d.logs, { ...log, id: generateId(), createdAt: new Date().toISOString() }].sort(
+                    (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+                  ),
+                  updatedAt: new Date().toISOString(),
+                }
+              : d
+          ),
+        }));
+      },
+
+      updateReactionLog: (diaryId, logId, data) => {
+        set((state) => ({
+          reactionDiaries: state.reactionDiaries.map((d) =>
+            d.id === diaryId
+              ? {
+                  ...d,
+                  logs: d.logs.map((l) => (l.id === logId ? { ...l, ...data } : l)).sort(
+                    (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+                  ),
+                  updatedAt: new Date().toISOString(),
+                }
+              : d
+          ),
+        }));
+      },
+
+      deleteReactionLog: (diaryId, logId) => {
+        set((state) => ({
+          reactionDiaries: state.reactionDiaries.map((d) =>
+            d.id === diaryId
+              ? {
+                  ...d,
+                  logs: d.logs.filter((l) => l.id !== logId),
+                  updatedAt: new Date().toISOString(),
+                }
+              : d
+          ),
+        }));
+      },
+
+      getDiaryByRecordId: (recordId) => {
+        return get().reactionDiaries.find((d) => d.vaccineRecordId === recordId);
+      },
+
+      completeDiary: (diaryId) => {
+        const state = get();
+        const diary = state.reactionDiaries.find((d) => d.id === diaryId);
+        if (!diary || diary.status === '已结束') return;
+
+        const logs = diary.logs;
+        const temps = logs.filter((l) => l.temperature !== undefined).map((l) => l.temperature!);
+        const rednessLevels = logs.filter((l) => l.rednessLevel).map((l) => l.rednessLevel!);
+        const mentalStatuses = logs.filter((l) => l.mentalStatus).map((l) => l.mentalStatus!);
+
+        const maxTemperature = temps.length > 0 ? Math.max(...temps) : undefined;
+
+        const rednessOrder: Record<string, number> = { '无': 0, '轻微': 1, '中度': 2, '严重': 3 };
+        const maxRednessLevel = rednessLevels.length > 0
+          ? rednessLevels.reduce((a, b) => (rednessOrder[a] >= rednessOrder[b] ? a : b))
+          : undefined;
+
+        const mentalOrder: Record<string, number> = { '良好': 0, '一般': 1, '较差': 2, '嗜睡': 3 };
+        const worstMentalStatus = mentalStatuses.length > 0
+          ? mentalStatuses.reduce((a, b) => (mentalOrder[a] >= mentalOrder[b] ? a : b))
+          : undefined;
+
+        let symptomCount = 0;
+        if (maxTemperature && maxTemperature >= 37.5) symptomCount++;
+        if (maxRednessLevel && maxRednessLevel !== '无') symptomCount++;
+        if (worstMentalStatus && worstMentalStatus !== '良好') symptomCount++;
+        if (logs.some((l) => l.otherSymptoms)) symptomCount++;
+
+        let overallSeverity: '无' | '轻微' | '中度' | '严重' = '无';
+        if (maxTemperature && maxTemperature >= 39) overallSeverity = '严重';
+        else if (maxRednessLevel === '严重' || worstMentalStatus === '嗜睡') overallSeverity = '严重';
+        else if (maxTemperature && maxTemperature >= 38) overallSeverity = '中度';
+        else if (maxRednessLevel === '中度' || worstMentalStatus === '较差') overallSeverity = '中度';
+        else if (maxTemperature && maxTemperature >= 37.5) overallSeverity = '轻微';
+        else if (maxRednessLevel === '轻微' || worstMentalStatus === '一般') overallSeverity = '轻微';
+
+        let conclusion = '观察期内无明显不良反应，宝宝状态良好。';
+        if (overallSeverity === '严重') {
+          conclusion = '观察期内出现较严重不良反应，建议及时就医并咨询医生。';
+        } else if (overallSeverity === '中度') {
+          conclusion = '观察期内出现中度不良反应，请注意观察护理，如症状持续加重请及时就医。';
+        } else if (overallSeverity === '轻微') {
+          conclusion = '观察期内出现轻微不良反应，属正常疫苗反应，一般可自行缓解。';
+        }
+
+        const summary: ReactionSummary = {
+          maxTemperature,
+          maxRednessLevel,
+          worstMentalStatus,
+          overallSeverity,
+          symptomCount,
+          conclusion,
+          completedAt: new Date().toISOString(),
+        };
+
+        set((state) => ({
+          reactionDiaries: state.reactionDiaries.map((d) =>
+            d.id === diaryId
+              ? {
+                  ...d,
+                  status: '已结束',
+                  summary,
+                  updatedAt: new Date().toISOString(),
+                }
+              : d
+          ),
+        }));
       },
     }),
     {

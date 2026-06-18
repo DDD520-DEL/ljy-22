@@ -11,6 +11,7 @@ import {
   AlertCircle,
   CheckCircle,
   Clock,
+  Activity,
 } from 'lucide-react';
 import { useAppStore } from '@/store';
 import {
@@ -18,6 +19,7 @@ import {
   calculateMonthAge,
   formatMonthAge,
   getDaysBetween,
+  getHoursBetween,
   getToday,
 } from '@/utils/dateUtils';
 import { GrowthSummaryCard } from '@/components/GrowthSummaryCard';
@@ -25,15 +27,15 @@ import { GrowthSummaryCard } from '@/components/GrowthSummaryCard';
 const quickLinks = [
   { path: '/vaccine-schedule', icon: Syringe, label: '疫苗接种', color: 'from-mint-400 to-mint-500', emoji: '💉' },
   { path: '/checkup-schedule', icon: Stethoscope, label: '儿保体检', color: 'from-coral-400 to-coral-500', emoji: '🏥' },
+  { path: '/reaction-diary', icon: Activity, label: '反应日记', color: 'from-teal-400 to-teal-500', emoji: '📝' },
   { path: '/reminders', icon: Bell, label: '提醒中心', color: 'from-amber-400 to-amber-500', emoji: '🔔' },
   { path: '/records', icon: FileText, label: '记录管理', color: 'from-blue-400 to-blue-500', emoji: '📋' },
   { path: '/export', icon: Printer, label: '导出打印', color: 'from-purple-400 to-purple-500', emoji: '🖨️' },
-  { path: '/child-info', icon: Calendar, label: '宝宝信息', color: 'from-pink-400 to-pink-500', emoji: '👶' },
 ];
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { children, currentChildId, vaccineSchedules, checkupSchedules, reminders, vaccineRecords, checkupRecords, refreshReminders } =
+  const { children, currentChildId, vaccineSchedules, checkupSchedules, reminders, vaccineRecords, checkupRecords, reactionDiaries, refreshReminders } =
     useAppStore();
 
   const child = children.find((c) => c.id === currentChildId) || null;
@@ -42,6 +44,8 @@ export default function Dashboard() {
   const currentVaccineRecords = vaccineRecords.filter((r) => r.childId === currentChildId);
   const currentCheckupRecords = checkupRecords.filter((r) => r.childId === currentChildId);
   const currentReminders = reminders.filter((r) => r.childId === currentChildId);
+  const currentReactionDiaries = reactionDiaries.filter((d) => d.childId === currentChildId);
+  const activeDiaries = currentReactionDiaries.filter((d) => d.status === '观察中');
 
   useEffect(() => {
     if (!child) {
@@ -265,6 +269,54 @@ export default function Dashboard() {
           </div>
         )}
       </div>
+
+      {activeDiaries.length > 0 && (
+        <div className="card bg-gradient-to-br from-coral-50 to-mint-50 border-coral-200">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold text-lg text-slate-800 flex items-center gap-2">
+              <span className="text-2xl">📝</span>
+              反应观察中
+            </h3>
+            <Link to="/reaction-diary" className="text-coral-500 text-sm font-medium flex items-center hover:text-coral-600">
+              全部日记 <ChevronRight className="w-4 h-4" />
+            </Link>
+          </div>
+          <div className="space-y-3">
+            {activeDiaries.map((diary) => {
+              const progress = Math.min(Math.max((getHoursBetween(diary.startTime, new Date().toISOString()) / 72) * 100, 0), 100);
+              const remaining = Math.max(0, Math.ceil(72 - getHoursBetween(diary.startTime, new Date().toISOString())));
+              return (
+                <div
+                  key={diary.id}
+                  className="p-4 rounded-2xl bg-white/70 hover:bg-white cursor-pointer transition-all hover:shadow-sm"
+                  onClick={() => navigate(`/reaction-diary/${diary.id}`)}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <Activity className="w-5 h-5 text-coral-500" />
+                      <span className="font-medium text-slate-700">{diary.vaccineName}</span>
+                      <span className="text-xs text-slate-400">第{diary.doseNumber}剂</span>
+                    </div>
+                    <span className="text-xs text-coral-600 font-medium animate-pulse-soft">
+                      观察中
+                    </span>
+                  </div>
+                  <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden mb-2">
+                    <div
+                      className="h-full bg-gradient-to-r from-mint-400 to-coral-400 rounded-full transition-all duration-500"
+                      style={{ width: `${progress}%` }}
+                    />
+                  </div>
+                  <div className="flex justify-between text-xs text-slate-500">
+                    <span>已记录 {diary.logs.length} 条</span>
+                    <span className="text-coral-600 font-medium">还剩 {remaining}h</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div>
         <h3 className="font-semibold text-lg text-slate-800 mb-4 flex items-center gap-2">

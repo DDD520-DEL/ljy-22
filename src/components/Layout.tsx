@@ -13,6 +13,7 @@ import {
   ChevronDown,
   X,
   UserPlus,
+  Activity,
 } from 'lucide-react';
 import { useAppStore } from '@/store';
 
@@ -21,6 +22,7 @@ const navItems = [
   { path: '/child-info', icon: Baby, label: '宝宝信息' },
   { path: '/vaccine-schedule', icon: Syringe, label: '疫苗接种' },
   { path: '/checkup-schedule', icon: Stethoscope, label: '儿保体检' },
+  { path: '/reaction-diary', icon: Activity, label: '反应日记' },
   { path: '/reminders', icon: Bell, label: '提醒中心' },
   { path: '/records', icon: FileText, label: '记录管理' },
   { path: '/export', icon: Printer, label: '导出打印' },
@@ -28,12 +30,13 @@ const navItems = [
 
 export default function Layout() {
   const navigate = useNavigate();
-  const { children, currentChildId, switchChild, deleteChild, reminders } = useAppStore();
+  const { children, currentChildId, switchChild, deleteChild, reminders, reactionDiaries } = useAppStore();
   const [showChildList, setShowChildList] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
 
   const currentChild = children.find((c) => c.id === currentChildId) || null;
   const pendingReminders = reminders.filter((r) => r.status !== '已完成').length;
+  const activeDiaries = reactionDiaries.filter((d) => d.childId === currentChildId && d.status === '观察中').length;
 
   const handleSwitchChild = (id: string) => {
     switchChild(id);
@@ -154,6 +157,8 @@ export default function Layout() {
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
           {navItems.map((item) => {
             const Icon = item.icon;
+            const showBadge = item.path === '/reminders' && pendingReminders > 0;
+            const showDiaryBadge = item.path === '/reaction-diary' && activeDiaries > 0;
             return (
               <NavLink
                 key={item.path}
@@ -165,9 +170,14 @@ export default function Layout() {
               >
                 <Icon className="w-5 h-5 flex-shrink-0" />
                 <span className="flex-1">{item.label}</span>
-                {item.path === '/reminders' && pendingReminders > 0 && (
+                {showBadge && (
                   <span className="min-w-5 h-5 px-1.5 bg-coral-500 text-white text-xs rounded-full flex items-center justify-center font-medium">
                     {pendingReminders}
+                  </span>
+                )}
+                {showDiaryBadge && (
+                  <span className="min-w-5 h-5 px-1.5 bg-mint-500 text-white text-xs rounded-full flex items-center justify-center font-medium animate-pulse-soft">
+                    {activeDiaries}
                   </span>
                 )}
               </NavLink>

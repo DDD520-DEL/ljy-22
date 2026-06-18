@@ -122,3 +122,48 @@ export interface AppSettings {
   reminderDaysBefore: number;
   notificationEnabled: boolean;
 }
+
+export type RednessLevel = '无' | '轻微' | '中度' | '严重';
+export type MentalStatus = '良好' | '一般' | '较差' | '嗜睡';
+export type DiaryStatus = '观察中' | '已结束';
+
+export interface ReactionLogEntry {
+  id: string;
+  timestamp: string;
+  temperature?: number;
+  rednessLevel?: RednessLevel;
+  rednessSize?: string;
+  mentalStatus?: MentalStatus;
+  otherSymptoms?: string;
+  notes?: string;
+  createdAt: string;
+}
+
+export interface ReactionSummary {
+  maxTemperature?: number;
+  maxRednessLevel?: RednessLevel;
+  worstMentalStatus?: MentalStatus;
+  overallSeverity: '无' | '轻微' | '中度' | '严重';
+  symptomCount: number;
+  conclusion: string;
+  recoveryDays?: number;
+  completedAt: string;
+}
+
+export interface VaccineReactionDiary {
+  id: string;
+  childId: string;
+  vaccineRecordId: string;
+  scheduleId: string;
+  vaccineName: string;
+  vaccineShortName: string;
+  doseNumber: number;
+  vaccinationDate: string;
+  startTime: string;
+  endTime: string;
+  status: DiaryStatus;
+  logs: ReactionLogEntry[];
+  summary?: ReactionSummary;
+  createdAt: string;
+  updatedAt: string;
+}
