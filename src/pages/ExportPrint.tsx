@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useMemo, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Printer,
   Download,
@@ -50,6 +50,7 @@ const templateInfo: Record<TemplateType, { name: string; desc: string; icon: JSX
 
 export default function ExportPrintPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const {
     children,
     currentChildId,
@@ -66,6 +67,14 @@ export default function ExportPrintPage() {
   const currentMilestoneAssessments = milestoneAssessments.filter((a) => a.childId === currentChildId);
 
   const [template, setTemplate] = useState<TemplateType>('nursery');
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const templateParam = params.get('template') as TemplateType;
+    if (templateParam && Object.keys(templateInfo).includes(templateParam)) {
+      setTemplate(templateParam);
+    }
+  }, [location.search]);
   const [showPreview, setShowPreview] = useState(true);
   const [includeGrowth, setIncludeGrowth] = useState(true);
   const [includeMilestone, setIncludeMilestone] = useState(true);
@@ -372,28 +381,32 @@ export default function ExportPrintPage() {
             <Download className="w-5 h-5" />
             导出 JSON
           </button>
-          <button
-            className={`flex items-center justify-center gap-2 flex-1 sm:flex-none px-5 py-2.5 rounded-xl font-medium transition-all ${
-              includeGrowth
-                ? 'bg-gradient-to-r from-blue-400 to-blue-500 text-white shadow-soft'
-                : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-            }`}
-            onClick={() => setIncludeGrowth(!includeGrowth)}
-          >
-            <TrendingUp className="w-5 h-5" />
-            {includeGrowth ? '✓ 含成长曲线' : '含成长曲线'}
-          </button>
-          <button
-            className={`flex items-center justify-center gap-2 flex-1 sm:flex-none px-5 py-2.5 rounded-xl font-medium transition-all ${
-              includeMilestone
-                ? 'bg-gradient-to-r from-purple-400 to-pink-400 text-white shadow-soft'
-                : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-            }`}
-            onClick={() => setIncludeMilestone(!includeMilestone)}
-          >
-            <Target className="w-5 h-5" />
-            {includeMilestone ? '✓ 含发育评估' : '含发育评估'}
-          </button>
+          {template !== 'certificate' && (
+            <>
+              <button
+                className={`flex items-center justify-center gap-2 flex-1 sm:flex-none px-5 py-2.5 rounded-xl font-medium transition-all ${
+                  includeGrowth
+                    ? 'bg-gradient-to-r from-blue-400 to-blue-500 text-white shadow-soft'
+                    : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                }`}
+                onClick={() => setIncludeGrowth(!includeGrowth)}
+              >
+                <TrendingUp className="w-5 h-5" />
+                {includeGrowth ? '✓ 含成长曲线' : '含成长曲线'}
+              </button>
+              <button
+                className={`flex items-center justify-center gap-2 flex-1 sm:flex-none px-5 py-2.5 rounded-xl font-medium transition-all ${
+                  includeMilestone
+                    ? 'bg-gradient-to-r from-purple-400 to-pink-400 text-white shadow-soft'
+                    : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                }`}
+                onClick={() => setIncludeMilestone(!includeMilestone)}
+              >
+                <Target className="w-5 h-5" />
+                {includeMilestone ? '✓ 含发育评估' : '含发育评估'}
+              </button>
+            </>
+          )}
         </div>
       </div>
 

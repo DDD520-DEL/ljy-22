@@ -252,7 +252,7 @@ export default function VaccineCertificatePage() {
             </button>
             <button
               className="btn-primary flex items-center gap-2"
-              onClick={() => navigate('/export')}
+              onClick={() => navigate('/export?template=certificate')}
             >
               <Printer className="w-4 h-4" />
               打印接种证
