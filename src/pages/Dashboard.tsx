@@ -13,6 +13,7 @@ import {
   Clock,
   Activity,
   Shield,
+  AlertOctagon,
 } from 'lucide-react';
 import { useAppStore } from '@/store';
 import {
@@ -37,7 +38,7 @@ const quickLinks = [
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { children, currentChildId, vaccineSchedules, checkupSchedules, reminders, vaccineRecords, checkupRecords, reactionDiaries, refreshReminders } =
+  const { children, currentChildId, vaccineSchedules, checkupSchedules, reminders, vaccineRecords, checkupRecords, reactionDiaries, abnormalItems, refreshReminders } =
     useAppStore();
 
   const child = children.find((c) => c.id === currentChildId) || null;
@@ -47,6 +48,7 @@ export default function Dashboard() {
   const currentCheckupRecords = checkupRecords.filter((r) => r.childId === currentChildId);
   const currentReminders = reminders.filter((r) => r.childId === currentChildId);
   const currentReactionDiaries = reactionDiaries.filter((d) => d.childId === currentChildId);
+  const currentAbnormalItems = abnormalItems.filter((a) => a.childId === currentChildId && a.status === '待复查');
   const activeDiaries = currentReactionDiaries.filter((d) => d.status === '观察中');
 
   useEffect(() => {
@@ -116,6 +118,48 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      {currentAbnormalItems.length > 0 && (
+        <div className="card border-2 border-red-200 bg-gradient-to-br from-red-50 to-white">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold text-lg text-red-700 flex items-center gap-2">
+              <AlertOctagon className="w-6 h-6 text-red-500" />
+              体检异常项
+              <span className="ml-2 text-2xl font-bold text-red-600">{currentAbnormalItems.length}</span>
+              <span className="text-sm font-normal text-red-400">项待复查</span>
+            </h3>
+            <Link to="/reminders" className="text-red-500 text-sm font-medium flex items-center hover:text-red-600">
+              查看详情 <ChevronRight className="w-4 h-4" />
+            </Link>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {currentAbnormalItems.slice(0, 4).map((item) => (
+              <div
+                key={item.id}
+                className="flex items-center gap-3 p-3 rounded-xl bg-white border border-red-100 hover:shadow-sm transition-all cursor-pointer"
+                onClick={() => navigate('/checkup-schedule')}
+              >
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-red-200 to-red-400 flex items-center justify-center flex-shrink-0 animate-pulse-soft">
+                  <AlertOctagon className="w-5 h-5 text-white" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-slate-700 text-sm truncate">{item.itemName}</p>
+                  <p className="text-xs text-slate-400 truncate">{item.abnormalDetail}</p>
+                  <p className="text-xs text-red-400 mt-0.5 flex items-center gap-1">
+                    <Calendar className="w-3 h-3" />
+                    复查：{formatDate(item.recheckRemindDate, 'MM/DD')}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+          {currentAbnormalItems.length > 4 && (
+            <p className="text-xs text-red-400 mt-3 text-center">
+              还有 {currentAbnormalItems.length - 4} 项异常，请前往提醒中心查看
+            </p>
+          )}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="card card-hover">

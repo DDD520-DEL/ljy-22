@@ -12,6 +12,7 @@ import type {
   ReactionLogEntry,
   ReactionSummary,
   MilestoneAssessment,
+  AbnormalItem,
 } from '@/types';
 import {
   generateVaccineSchedules,
@@ -31,6 +32,7 @@ interface AppState {
   reminders: Reminder[];
   reactionDiaries: VaccineReactionDiary[];
   milestoneAssessments: MilestoneAssessment[];
+  abnormalItems: AbnormalItem[];
   settings: AppSettings;
 
   get currentChild(): Child | null;
@@ -53,6 +55,10 @@ interface AppState {
 
   refreshReminders: () => void;
   markReminderComplete: (id: string) => void;
+
+  addAbnormalItems: (items: Omit<AbnormalItem, 'id' | 'childId' | 'createdAt'>[]) => void;
+  resolveAbnormalItem: (id: string) => void;
+  archiveResolvedAbnormalItems: () => void;
 
   updateSettings: (settings: Partial<AppSettings>) => void;
 
@@ -83,6 +89,7 @@ export const useAppStore = create<AppState>()(
       reminders: [],
       reactionDiaries: [],
       milestoneAssessments: [],
+      abnormalItems: [],
       settings: initialSettings,
 
       get currentChild() {
@@ -160,6 +167,7 @@ export const useAppStore = create<AppState>()(
           const newReminders = state.reminders.filter((r) => r.childId !== id);
           const newReactionDiaries = state.reactionDiaries.filter((d) => d.childId !== id);
           const newMilestoneAssessments = state.milestoneAssessments.filter((a) => a.childId !== id);
+          const newAbnormalItems = state.abnormalItems.filter((a) => a.childId !== id);
 
           let newCurrentChildId = state.currentChildId;
           if (state.currentChildId === id) {
@@ -176,6 +184,7 @@ export const useAppStore = create<AppState>()(
             reminders: newReminders,
             reactionDiaries: newReactionDiaries,
             milestoneAssessments: newMilestoneAssessments,
+            abnormalItems: newAbnormalItems,
           };
         });
       },
@@ -365,6 +374,59 @@ export const useAppStore = create<AppState>()(
         set((state) => ({
           reminders: state.reminders.map((r) =>
             r.id === id ? { ...r, status: '已完成' as const } : r
+          ),
+        }));
+      },
+
+      addAbnormalItems: (items) => {
+        const state = get();
+        if (!state.currentChildId) return;
+
+        const now = new Date().toISOString();
+        const newItems: AbnormalItem[] = items.map((item) => ({
+          ...item,
+          id: generateId(),
+          childId: state.currentChildId!,
+          createdAt: now,
+        }));
+
+        const newReminders: Reminder[] = newItems.map((item) => ({
+          id: generateId(),
+          childId: state.currentChildId!,
+          type: 'abnormal' as const,
+          relatedId: item.id,
+          title: `复查提醒：${item.itemName}`,
+          dueDate: item.recheckRemindDate,
+          remindDate: item.recheckRemindDate,
+          status: '已提醒' as const,
+          daysBefore: 0,
+        }));
+
+        set((state) => ({
+          abnormalItems: [...state.abnormalItems, ...newItems],
+          reminders: [...newReminders, ...state.reminders],
+        }));
+      },
+
+      resolveAbnormalItem: (id) => {
+        const now = new Date().toISOString();
+        set((state) => ({
+          abnormalItems: state.abnormalItems.map((a) =>
+            a.id === id ? { ...a, status: '已复查正常' as const, resolvedAt: now } : a
+          ),
+          reminders: state.reminders.map((r) =>
+            r.type === 'abnormal' && r.relatedId === id ? { ...r, status: '已完成' as const } : r
+          ),
+        }));
+
+        setTimeout(() => get().archiveResolvedAbnormalItems(), 3000);
+      },
+
+      archiveResolvedAbnormalItems: () => {
+        const now = new Date().toISOString();
+        set((state) => ({
+          abnormalItems: state.abnormalItems.map((a) =>
+            a.status === '已复查正常' ? { ...a, status: '已归档' as const, archivedAt: now } : a
           ),
         }));
       },

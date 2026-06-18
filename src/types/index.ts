@@ -132,7 +132,7 @@ export interface MilestoneAssessment {
 export interface Reminder {
   id: string;
   childId: string;
-  type: 'vaccine' | 'checkup';
+  type: 'vaccine' | 'checkup' | 'abnormal';
   relatedId: string;
   title: string;
   dueDate: string;
@@ -140,6 +140,20 @@ export interface Reminder {
   status: '待提醒' | '已提醒' | '已完成';
   daysBefore: number;
   notifiedAt?: string;
+}
+
+export interface AbnormalItem {
+  id: string;
+  childId: string;
+  checkupRecordId: string;
+  itemName: string;
+  category: CheckupItem['category'];
+  abnormalDetail: string;
+  status: '待复查' | '已复查正常' | '已归档';
+  createdAt: string;
+  resolvedAt?: string;
+  archivedAt?: string;
+  recheckRemindDate: string;
 }
 
 export interface AppSettings {

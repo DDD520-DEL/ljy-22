@@ -15,15 +15,17 @@ import {
   FileText,
   Heart,
   Target,
+  AlertOctagon,
 } from 'lucide-react';
 import { useAppStore } from '@/store';
-import type { CheckupSchedule as CheckupScheduleType, CheckupRecord } from '@/types';
+import type { CheckupSchedule as CheckupScheduleType, CheckupRecord, CheckupItem } from '@/types';
 import {
   formatDate,
   formatMonthAge,
   getDaysBetween,
   getToday,
   calculateMonthAge,
+  addDays,
 } from '@/utils/dateUtils';
 import {
   MILESTONE_CHECKLISTS,
@@ -42,6 +44,8 @@ export default function CheckupSchedulePage() {
     checkupSchedules,
     checkupRecords,
     addCheckupRecord,
+    addAbnormalItems,
+    abnormalItems,
     milestoneAssessments,
     saveMilestoneAssessment,
     deleteMilestoneAssessment,
@@ -69,6 +73,7 @@ export default function CheckupSchedulePage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [stageOverride, setStageOverride] = useState<number | null>(null);
   const [showMilestone, setShowMilestone] = useState(false);
+  const [abnormalSelections, setAbnormalSelections] = useState<Record<string, { checked: boolean; detail: string }>>({});
 
   useEffect(() => {
     if (!child) navigate('/child-info');
@@ -155,6 +160,7 @@ export default function CheckupSchedulePage() {
       doctorAdvice: existing?.doctorAdvice || '',
       notes: existing?.notes || '',
     });
+    setAbnormalSelections({});
     setShowRecordModal(true);
   };
 
@@ -167,6 +173,25 @@ export default function CheckupSchedulePage() {
       scheduleId: selectedSchedule.id,
       monthAge: selectedSchedule.monthAge,
     });
+
+    const abnormalEntries = Object.entries(abnormalSelections).filter(
+      ([, v]) => v.checked && v.detail.trim()
+    );
+    if (abnormalEntries.length > 0) {
+      const recheckDate = addDays(recordForm.checkupDate, 30);
+      const items = abnormalEntries.map(([itemName, v]) => {
+        const matchedItem = selectedSchedule.items.find((i) => i.name === itemName);
+        return {
+          checkupRecordId: '',
+          itemName,
+          category: matchedItem?.category || '其他' as CheckupItem['category'],
+          abnormalDetail: v.detail.trim(),
+          status: '待复查' as const,
+          recheckRemindDate: recheckDate,
+        };
+      });
+      addAbnormalItems(items);
+    }
 
     setShowRecordModal(false);
     setSelectedSchedule(null);
@@ -518,6 +543,35 @@ export default function CheckupSchedulePage() {
                           {record.doctorAdvice}
                         </p>
                       )}
+                      {(() => {
+                        const relatedAbnormals = abnormalItems.filter(
+                          (a) => a.checkupRecordId === record.id && a.status !== '已归档'
+                        );
+                        if (relatedAbnormals.length === 0) return null;
+                        return (
+                          <div className="mt-4 p-4 rounded-xl bg-red-50 border border-red-200">
+                            <p className="text-sm font-bold text-red-600 mb-3 flex items-center gap-2">
+                              <AlertOctagon className="w-4 h-4" />
+                              异常项追踪
+                            </p>
+                            <div className="space-y-2">
+                              {relatedAbnormals.map((ab) => (
+                                <div key={ab.id} className="flex items-center justify-between p-2.5 rounded-lg bg-white border border-red-100">
+                                  <div>
+                                    <span className="font-medium text-sm text-slate-700">{ab.itemName}</span>
+                                    <span className="text-xs text-slate-400 ml-2">{ab.abnormalDetail}</span>
+                                  </div>
+                                  <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+                                    ab.status === '待复查' ? 'bg-red-100 text-red-600' : 'bg-mint-100 text-mint-600'
+                                  }`}>
+                                    {ab.status}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </div>
                   )}
                 </div>
@@ -670,6 +724,63 @@ export default function CheckupSchedulePage() {
                   value={recordForm.notes}
                   onChange={(e) => setRecordForm({ ...recordForm, notes: e.target.value })}
                 />
+              </div>
+
+              <div className="p-5 rounded-2xl bg-red-50 border border-red-200">
+                <div className="flex items-center gap-2 mb-3">
+                  <AlertOctagon className="w-5 h-5 text-red-500" />
+                  <h3 className="font-bold text-red-700">异常项标记</h3>
+                  <span className="text-xs text-red-400">勾选需要复查的异常检查项</span>
+                </div>
+                <div className="space-y-3 max-h-60 overflow-y-auto">
+                  {selectedSchedule.items.map((item, idx) => {
+                    const sel = abnormalSelections[item.name];
+                    const isChecked = sel?.checked || false;
+                    return (
+                      <div key={idx} className="rounded-xl bg-white border border-red-100 overflow-hidden">
+                        <label className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-red-50/50 transition-colors">
+                          <input
+                            type="checkbox"
+                            className="w-4 h-4 rounded border-red-300 text-red-500 focus:ring-red-400 accent-red-500"
+                            checked={isChecked}
+                            onChange={(e) =>
+                              setAbnormalSelections({
+                                ...abnormalSelections,
+                                [item.name]: { checked: e.target.checked, detail: sel?.detail || '' },
+                              })
+                            }
+                          />
+                          <div className="flex-1 min-w-0">
+                            <span className="font-medium text-sm text-slate-700">{item.name}</span>
+                            <span className="ml-2 text-xs text-slate-400">{item.category}</span>
+                          </div>
+                        </label>
+                        {isChecked && (
+                          <div className="px-4 pb-3">
+                            <input
+                              type="text"
+                              className="input-field text-sm border-red-200 focus:border-red-400"
+                              placeholder={`描述${item.name}的异常情况，如"血红蛋白偏低"…`}
+                              value={sel?.detail || ''}
+                              onChange={(e) =>
+                                setAbnormalSelections({
+                                  ...abnormalSelections,
+                                  [item.name]: { checked: true, detail: e.target.value },
+                                })
+                              }
+                            />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+                {Object.values(abnormalSelections).some((v) => v.checked) && (
+                  <p className="mt-3 text-xs text-red-500 flex items-center gap-1">
+                    <AlertCircle className="w-3.5 h-3.5" />
+                    已标记 {Object.values(abnormalSelections).filter((v) => v.checked).length} 项异常，保存后将自动生成复查提醒
+                  </p>
+                )}
               </div>
 
               <div className="flex gap-3 pt-2">

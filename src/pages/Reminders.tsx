@@ -13,9 +13,12 @@ import {
   Clock,
   AlertCircle,
   Baby,
+  AlertOctagon,
+  ShieldCheck,
+  Archive,
 } from 'lucide-react';
 import { useAppStore } from '@/store';
-import type { Reminder } from '@/types';
+import type { Reminder, AbnormalItem } from '@/types';
 import {
   formatDate,
   getDaysBetween,
@@ -31,9 +34,11 @@ export default function RemindersPage() {
     children,
     currentChildId,
     reminders,
+    abnormalItems,
     settings,
     updateSettings,
     markReminderComplete,
+    resolveAbnormalItem,
     refreshReminders,
     switchChild,
   } = useAppStore();
@@ -127,6 +132,10 @@ export default function RemindersPage() {
 
   const displayReminders = babyFilter === 'all' ? reminders : reminders.filter((r) => r.childId === currentChildId);
 
+  const displayAbnormalItems = babyFilter === 'all'
+    ? abnormalItems.filter((a) => a.status !== '已归档')
+    : abnormalItems.filter((a) => a.childId === currentChildId && a.status !== '已归档');
+
   const stats = {
     total: displayReminders.length,
     pending: displayReminders.filter((r) => r.status === '待提醒').length,
@@ -138,7 +147,11 @@ export default function RemindersPage() {
     if (reminder.childId !== currentChildId) {
       switchChild(reminder.childId);
     }
-    navigate(reminder.type === 'vaccine' ? '/vaccine-schedule' : '/checkup-schedule');
+    if (reminder.type === 'abnormal') {
+      navigate('/checkup-schedule');
+    } else {
+      navigate(reminder.type === 'vaccine' ? '/vaccine-schedule' : '/checkup-schedule');
+    }
   };
 
   return (
@@ -255,6 +268,88 @@ export default function RemindersPage() {
         </div>
       </div>
 
+      {displayAbnormalItems.length > 0 && (
+        <div className="card border-2 border-red-200 bg-gradient-to-br from-red-50 to-white">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold text-lg text-red-700 flex items-center gap-2">
+              <AlertOctagon className="w-6 h-6 text-red-500" />
+              体检异常项追踪
+              <span className="ml-1 text-sm font-normal text-red-400">
+                ({displayAbnormalItems.filter((a) => a.status === '待复查').length} 项待复查)
+              </span>
+            </h3>
+          </div>
+          <div className="space-y-3">
+            {displayAbnormalItems.map((item) => (
+              <div
+                key={item.id}
+                className={`flex items-center gap-4 p-4 rounded-2xl border-2 transition-all ${
+                  item.status === '待复查'
+                    ? 'bg-white border-red-200 hover:shadow-soft'
+                    : 'bg-mint-50 border-mint-200'
+                }`}
+              >
+                <div
+                  className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                    item.status === '待复查'
+                      ? 'bg-gradient-to-br from-red-200 to-red-400 animate-pulse-soft'
+                      : 'bg-gradient-to-br from-mint-200 to-mint-400'
+                  }`}
+                >
+                  {item.status === '待复查' ? (
+                    <AlertOctagon className="w-6 h-6 text-white" />
+                  ) : (
+                    <ShieldCheck className="w-6 h-6 text-white" />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h4 className="font-bold text-slate-800">{item.itemName}</h4>
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                      item.status === '待复查' ? 'bg-red-100 text-red-600' : 'bg-mint-100 text-mint-600'
+                    }`}>
+                      {item.status}
+                    </span>
+                    {babyFilter === 'all' && (() => {
+                      const c = children.find((ch) => ch.id === item.childId);
+                      return c ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-slate-100 text-slate-600">
+                          {c.gender === '男' ? '👦' : '👧'} {c.name}
+                        </span>
+                      ) : null;
+                    })()}
+                  </div>
+                  <p className="text-sm text-slate-500 mt-0.5">{item.abnormalDetail}</p>
+                  <p className="text-xs text-slate-400 mt-1 flex items-center gap-1">
+                    <Calendar className="w-3 h-3" />
+                    建议复查日期：{formatDate(item.recheckRemindDate, 'YYYY年MM月DD日')}
+                  </p>
+                </div>
+                {item.status === '待复查' && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      resolveAbnormalItem(item.id);
+                    }}
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-mint-100 hover:bg-mint-200 text-mint-700 font-medium text-sm transition-colors flex-shrink-0"
+                    title="标记为已复查正常"
+                  >
+                    <ShieldCheck className="w-4 h-4" />
+                    已复查正常
+                  </button>
+                )}
+                {item.status === '已复查正常' && (
+                  <div className="flex items-center gap-1 text-mint-500 text-xs font-medium flex-shrink-0">
+                    <Archive className="w-3.5 h-3.5" />
+                    自动归档中…
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="flex bg-white rounded-xl p-1 shadow-soft border border-slate-100 w-fit">
         {[
           { key: 'all' as FilterType, label: '全部', count: stats.total },
@@ -311,11 +406,15 @@ export default function RemindersPage() {
                     className={`w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0 ${
                       reminder.type === 'vaccine'
                         ? 'bg-gradient-to-br from-mint-200 to-mint-400'
+                        : reminder.type === 'abnormal'
+                        ? 'bg-gradient-to-br from-red-200 to-red-400'
                         : 'bg-gradient-to-br from-coral-200 to-coral-400'
                     } ${daysToDue <= 1 && reminder.status !== '已完成' ? 'animate-pulse-soft' : ''}`}
                   >
                     {reminder.type === 'vaccine' ? (
                       <Syringe className="w-7 h-7 text-white" />
+                    ) : reminder.type === 'abnormal' ? (
+                      <AlertOctagon className="w-7 h-7 text-white" />
                     ) : (
                       <Stethoscope className="w-7 h-7 text-white" />
                     )}
@@ -343,7 +442,7 @@ export default function RemindersPage() {
                         </p>
                         <div className="flex items-center gap-2 mt-1">
                           <p className="text-xs text-slate-400">
-                            {reminder.type === 'vaccine' ? '💉 疫苗接种' : '🏥 儿保体检'}
+                            {reminder.type === 'vaccine' ? '💉 疫苗接种' : reminder.type === 'abnormal' ? '⚠️ 异常复查' : '🏥 儿保体检'}
                             {reminder.status === '待提醒' && (
                               <> · {reminder.daysBefore}天前开始提醒</>
                             )}
