@@ -8,6 +8,13 @@ export interface Child {
   updatedAt: string;
 }
 
+export interface VaccineKnowledge {
+  preventionPrinciple: string;
+  contraindicationDetails: string[];
+  nursingMethods: string[];
+  tips: string[];
+}
+
 export interface VaccineDefinition {
   code: string;
   name: string;
@@ -18,6 +25,7 @@ export interface VaccineDefinition {
   contraindications: string[];
   commonReactions: string[];
   category: '一类' | '二类';
+  knowledge: VaccineKnowledge;
 }
 
 export interface DoseInfo {

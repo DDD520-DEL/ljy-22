@@ -16,14 +16,19 @@ import {
   AlertOctagon,
   ShieldCheck,
   Archive,
+  BookOpen,
+  Lightbulb,
+  AlertTriangle,
 } from 'lucide-react';
 import { useAppStore } from '@/store';
-import type { Reminder, AbnormalItem } from '@/types';
+import type { Reminder, AbnormalItem, VaccineSchedule } from '@/types';
 import {
   formatDate,
   getDaysBetween,
   getToday,
 } from '@/utils/dateUtils';
+import { VACCINE_DEFINITIONS } from '@/data/vaccines';
+import VaccineKnowledgeCard from '@/components/VaccineKnowledgeCard';
 
 type FilterType = 'all' | 'pending' | 'notified' | 'completed';
 type BabyFilterType = 'all' | 'current';
@@ -36,6 +41,7 @@ export default function RemindersPage() {
     reminders,
     abnormalItems,
     settings,
+    vaccineSchedules,
     updateSettings,
     markReminderComplete,
     resolveAbnormalItem,
@@ -48,6 +54,9 @@ export default function RemindersPage() {
   const [showSettings, setShowSettings] = useState(false);
   const [tempDays, setTempDays] = useState(settings.reminderDaysBefore);
   const [notificationGranted, setNotificationGranted] = useState(false);
+  const [knowledgeVaccineCode, setKnowledgeVaccineCode] = useState<string | null>(null);
+  const [knowledgeDoseNumber, setKnowledgeDoseNumber] = useState<number | undefined>(undefined);
+  const [knowledgePlannedDate, setKnowledgePlannedDate] = useState<string | undefined>(undefined);
 
   const currentChild = children.find((c) => c.id === currentChildId) || null;
 
@@ -394,6 +403,14 @@ export default function RemindersPage() {
             const daysToDue = getDaysBetween(today, reminder.dueDate);
             const child = getChildById(reminder.childId);
 
+            const vaccineSchedule = reminder.type === 'vaccine'
+              ? vaccineSchedules.find((s: VaccineSchedule) => s.id === reminder.relatedId)
+              : null;
+            const vaccineDefinition = vaccineSchedule
+              ? VACCINE_DEFINITIONS.find((v) => v.code === vaccineSchedule.vaccineCode)
+              : null;
+            const vaccineKnowledge = vaccineDefinition?.knowledge;
+
             return (
               <div
                 key={reminder.id}
@@ -401,9 +418,9 @@ export default function RemindersPage() {
                 style={{ animationDelay: `${index * 50}ms` }}
                 onClick={() => handleReminderClick(reminder)}
               >
-                <div className="flex items-center gap-4">
+                <div className="flex items-start gap-4">
                   <div
-                    className={`w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0 ${
+                    className={`w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0 mt-1 ${
                       reminder.type === 'vaccine'
                         ? 'bg-gradient-to-br from-mint-200 to-mint-400'
                         : reminder.type === 'abnormal'
@@ -422,8 +439,29 @@ export default function RemindersPage() {
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <h3 className="font-bold text-lg text-slate-800 truncate">{reminder.title}</h3>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="font-bold text-lg text-slate-800 truncate">{reminder.title}</h3>
+                          {reminder.type === 'vaccine' && vaccineDefinition && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setKnowledgeVaccineCode(vaccineDefinition.code);
+                                setKnowledgeDoseNumber(vaccineSchedule?.doseNumber);
+                                setKnowledgePlannedDate(
+                                  vaccineSchedule
+                                    ? formatDate(vaccineSchedule.plannedDate, 'YYYY年MM月DD日')
+                                    : undefined
+                                );
+                              }}
+                              className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-mint-100 hover:bg-mint-200 text-mint-600 text-xs font-medium transition-colors flex-shrink-0"
+                              title="查看疫苗科普知识"
+                            >
+                              <BookOpen className="w-3 h-3" />
+                              疫苗知识
+                            </button>
+                          )}
+                        </div>
                         <p className="text-sm text-slate-500 flex items-center gap-2 mt-1">
                           <Calendar className="w-4 h-4 flex-shrink-0" />
                           到期日：{formatDate(reminder.dueDate, 'YYYY年MM月DD日')}
@@ -453,9 +491,45 @@ export default function RemindersPage() {
                             </span>
                           )}
                         </div>
+
+                        {reminder.type === 'vaccine' && vaccineKnowledge && reminder.status !== '已完成' && (
+                          <div className="mt-3 space-y-2">
+                            {vaccineDefinition && (
+                              <div className="flex items-start gap-1.5 p-2.5 rounded-xl bg-gradient-to-r from-blue-50/70 to-mint-50/70 border border-blue-100/60">
+                                <ShieldCheck className="w-3.5 h-3.5 text-blue-500 flex-shrink-0 mt-0.5" />
+                                <p className="text-xs text-slate-600 leading-relaxed">
+                                  <span className="font-semibold text-blue-700">预防：</span>
+                                  {vaccineDefinition.preventDisease}
+                                </p>
+                              </div>
+                            )}
+                            {vaccineKnowledge.tips.length > 0 && (
+                              <div className="flex items-start gap-1.5 p-2.5 rounded-xl bg-gradient-to-r from-amber-50/70 to-coral-50/70 border border-amber-100/60">
+                                <Lightbulb className="w-3.5 h-3.5 text-amber-500 flex-shrink-0 mt-0.5" />
+                                <div className="text-xs text-slate-600 leading-relaxed min-w-0">
+                                  <span className="font-semibold text-amber-700">接种前注意：</span>
+                                  <span className="line-clamp-2">
+                                    {vaccineKnowledge.tips[0]}
+                                  </span>
+                                </div>
+                              </div>
+                            )}
+                            {vaccineDefinition.contraindications.length > 0 && (
+                              <div className="flex items-start gap-1.5 p-2.5 rounded-xl bg-gradient-to-r from-red-50/70 to-coral-50/50 border border-red-100/60">
+                                <AlertTriangle className="w-3.5 h-3.5 text-red-500 flex-shrink-0 mt-0.5" />
+                                <div className="text-xs text-slate-600 leading-relaxed min-w-0">
+                                  <span className="font-semibold text-red-600">禁忌症：</span>
+                                  <span className="line-clamp-2">
+                                    {vaccineDefinition.contraindications.slice(0, 3).join('；')}
+                                  </span>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
 
-                      <div className="flex items-center gap-3 flex-shrink-0">
+                      <div className="flex flex-col items-end gap-2 flex-shrink-0">
                         <span className={`status-badge ${style.badge}`}>
                           <StatusIcon className="w-3.5 h-3.5 mr-1" />
                           {style.label}
@@ -567,6 +641,19 @@ export default function RemindersPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {knowledgeVaccineCode && (
+        <VaccineKnowledgeCard
+          vaccineCode={knowledgeVaccineCode}
+          doseNumber={knowledgeDoseNumber}
+          plannedDate={knowledgePlannedDate}
+          onClose={() => {
+            setKnowledgeVaccineCode(null);
+            setKnowledgeDoseNumber(undefined);
+            setKnowledgePlannedDate(undefined);
+          }}
+        />
       )}
     </div>
   );

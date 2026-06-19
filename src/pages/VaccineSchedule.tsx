@@ -12,6 +12,7 @@ import {
   Info,
   Activity,
   ExternalLink,
+  BookOpen,
 } from 'lucide-react';
 import { useAppStore } from '@/store';
 import type { VaccineSchedule as VaccineScheduleType, VaccineRecord } from '@/types';
@@ -21,6 +22,8 @@ import {
   getDaysBetween,
   getToday,
 } from '@/utils/dateUtils';
+import VaccineKnowledgeCard from '@/components/VaccineKnowledgeCard';
+import { VACCINE_DEFINITIONS } from '@/data/vaccines';
 
 type FilterType = 'all' | 'pending' | 'completed' | 'missed';
 type CategoryType = 'all' | '一类' | '二类';
@@ -45,6 +48,9 @@ export default function VaccineSchedulePage() {
   const [category, setCategory] = useState<CategoryType>('all');
   const [selectedSchedule, setSelectedSchedule] = useState<VaccineScheduleType | null>(null);
   const [showRecordModal, setShowRecordModal] = useState(false);
+  const [knowledgeVaccineCode, setKnowledgeVaccineCode] = useState<string | null>(null);
+  const [knowledgeDoseNumber, setKnowledgeDoseNumber] = useState<number | undefined>(undefined);
+  const [knowledgePlannedDate, setKnowledgePlannedDate] = useState<string | undefined>(undefined);
   const [recordForm, setRecordForm] = useState({
     manufacturer: '',
     batchNumber: '',
@@ -243,12 +249,23 @@ export default function VaccineSchedulePage() {
                         <span className="px-3 py-1 rounded-full text-sm font-bold bg-gradient-to-r from-mint-100 to-coral-100 text-slate-700">
                           {formatMonthAge(schedule.monthAge)}
                         </span>
-                        <h3 className="text-xl font-bold text-slate-800">
-                          {schedule.vaccineName}
-                          <span className="text-sm font-normal text-slate-500 ml-2">
-                            (第{schedule.doseNumber}剂)
-                          </span>
-                        </h3>
+                        <button
+                          onClick={() => {
+                            setKnowledgeVaccineCode(schedule.vaccineCode);
+                            setKnowledgeDoseNumber(schedule.doseNumber);
+                            setKnowledgePlannedDate(formatDate(schedule.plannedDate, 'YYYY年MM月DD日'));
+                          }}
+                          className="group flex items-center gap-1.5 hover:bg-gradient-to-r hover:from-mint-50 hover:to-coral-50 px-2 -mx-2 py-0.5 rounded-lg transition-all"
+                          title="点击查看疫苗科普知识"
+                        >
+                          <h3 className="text-xl font-bold text-slate-800 group-hover:gradient-text transition-all">
+                            {schedule.vaccineName}
+                            <span className="text-sm font-normal text-slate-500 ml-2">
+                              (第{schedule.doseNumber}剂)
+                            </span>
+                          </h3>
+                          <BookOpen className="w-4 h-4 text-slate-400 group-hover:text-mint-500 transition-colors flex-shrink-0 mt-0.5" />
+                        </button>
                         <span
                           className={`px-2.5 py-0.5 rounded text-xs font-medium ${
                             schedule.category === '一类'
@@ -547,6 +564,19 @@ export default function VaccineSchedulePage() {
             </form>
           </div>
         </div>
+      )}
+
+      {knowledgeVaccineCode && (
+        <VaccineKnowledgeCard
+          vaccineCode={knowledgeVaccineCode}
+          doseNumber={knowledgeDoseNumber}
+          plannedDate={knowledgePlannedDate}
+          onClose={() => {
+            setKnowledgeVaccineCode(null);
+            setKnowledgeDoseNumber(undefined);
+            setKnowledgePlannedDate(undefined);
+          }}
+        />
       )}
     </div>
   );
