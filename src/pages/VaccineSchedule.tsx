@@ -13,6 +13,10 @@ import {
   Activity,
   ExternalLink,
   BookOpen,
+  CalendarClock,
+  ArrowRight,
+  RotateCcw,
+  Sparkles,
 } from 'lucide-react';
 import { useAppStore } from '@/store';
 import type { VaccineSchedule as VaccineScheduleType, VaccineRecord } from '@/types';
@@ -21,9 +25,9 @@ import {
   formatMonthAge,
   getDaysBetween,
   getToday,
+  addDays,
 } from '@/utils/dateUtils';
 import VaccineKnowledgeCard from '@/components/VaccineKnowledgeCard';
-import { VACCINE_DEFINITIONS } from '@/data/vaccines';
 
 type FilterType = 'all' | 'pending' | 'completed' | 'missed';
 type CategoryType = 'all' | '一类' | '二类';
@@ -37,7 +41,7 @@ export default function VaccineSchedulePage() {
     vaccineRecords,
     reactionDiaries,
     addVaccineRecord,
-    updateVaccineScheduleStatus,
+    postponeVaccineSchedule,
   } = useAppStore();
 
   const child = children.find((c) => c.id === currentChildId) || null;
@@ -61,6 +65,15 @@ export default function VaccineSchedulePage() {
     reactionSeverity: '无' as VaccineRecord['reactionSeverity'],
     notes: '',
   });
+
+  const [showPostponeModal, setShowPostponeModal] = useState(false);
+  const [postponeSchedule, setPostponeSchedule] = useState<VaccineScheduleType | null>(null);
+  const [postponeForm, setPostponeForm] = useState({
+    newDate: getToday(),
+    reason: '生病',
+  });
+
+  const commonReasons = ['生病', '发热', '腹泻', '湿疹', '用药中', '其他原因'];
 
   useEffect(() => {
     if (!child) navigate('/child-info');
@@ -139,6 +152,29 @@ export default function VaccineSchedulePage() {
       notes: '',
     });
     setShowRecordModal(true);
+  };
+
+  const openPostponeModal = (schedule: VaccineScheduleType) => {
+    setPostponeSchedule(schedule);
+    setPostponeForm({
+      newDate: addDays(schedule.plannedDate, 7),
+      reason: '生病',
+    });
+    setShowPostponeModal(true);
+  };
+
+  const handleSubmitPostpone = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!postponeSchedule) return;
+
+    postponeVaccineSchedule(
+      postponeSchedule.id,
+      postponeForm.newDate,
+      postponeForm.reason
+    );
+
+    setShowPostponeModal(false);
+    setPostponeSchedule(null);
   };
 
   const handleSubmitRecord = (e: React.FormEvent) => {
@@ -242,7 +278,13 @@ export default function VaccineSchedulePage() {
                   <StatusIcon className="w-4 h-4 text-white" />
                 </div>
 
-                <div className={`card card-hover border-l-4 ${config.bg}`}>
+                <div className={`card card-hover border-l-4 ${config.bg} ${schedule.isAdjusted ? 'relative ring-2 ring-amber-300 ring-offset-2' : ''}`}>
+                  {schedule.isAdjusted && (
+                    <div className="absolute -top-2 -right-2 flex items-center gap-1 px-2 py-1 bg-gradient-to-r from-amber-400 to-orange-400 text-white text-xs font-bold rounded-full shadow-md z-10">
+                      <Sparkles className="w-3 h-3" />
+                      已调整
+                    </div>
+                  )}
                   <div className="flex flex-col lg:flex-row lg:items-start gap-4">
                     <div className="flex-1">
                       <div className="flex flex-wrap items-center gap-3 mb-3">
@@ -292,9 +334,28 @@ export default function VaccineSchedulePage() {
                         <div className="flex items-center gap-2 text-slate-600">
                           <Info className="w-4 h-4 text-blue-500" />
                           <span className="text-slate-400">接种：</span>
-                          {formatDate(schedule.plannedDate, 'YYYY年MM月DD日')}
+                          {schedule.isAdjusted && schedule.adjustedFrom ? (
+                            <div className="flex items-center gap-2">
+                              <span className="line-through text-slate-400 text-sm">
+                                {formatDate(schedule.adjustedFrom, 'YYYY年MM月DD日')}
+                              </span>
+                              <ArrowRight className="w-3 h-3 text-amber-500" />
+                              <span className="font-medium text-amber-600">
+                                {formatDate(schedule.plannedDate, 'YYYY年MM月DD日')}
+                              </span>
+                            </div>
+                          ) : (
+                            formatDate(schedule.plannedDate, 'YYYY年MM月DD日')
+                          )}
                         </div>
                       </div>
+
+                      {schedule.isAdjusted && schedule.adjustReason && (
+                        <div className="mt-2 flex items-center gap-2 text-xs text-amber-600 bg-amber-50 border border-amber-100 px-3 py-1.5 rounded-lg w-fit">
+                          <CalendarClock className="w-3.5 h-3.5" />
+                          <span>调整原因：{schedule.adjustReason}</span>
+                        </div>
+                      )}
 
                       {schedule.contraindications && (
                         <div className="mt-3 p-3 rounded-xl bg-amber-50 border border-amber-100 text-xs text-amber-700">
@@ -376,22 +437,41 @@ export default function VaccineSchedulePage() {
                     </div>
 
                     <div className="flex lg:flex-col gap-2 lg:min-w-[140px]">
-                      {schedule.status === '待接种' && !record && (
-                        <button
-                          onClick={() => openRecordModal(schedule)}
-                          className="btn-primary flex items-center justify-center gap-2 lg:w-full"
-                        >
-                          <Plus className="w-4 h-4" />
-                          录入记录
-                        </button>
+                      {(schedule.status === '待接种' || schedule.status === '已错过') && !record && (
+                        <>
+                          <button
+                            onClick={() => openRecordModal(schedule)}
+                            className="btn-primary flex items-center justify-center gap-2 lg:w-full"
+                          >
+                            <Plus className="w-4 h-4" />
+                            录入记录
+                          </button>
+                          <button
+                            onClick={() => openPostponeModal(schedule)}
+                            className="btn-outline lg:w-full flex items-center justify-center gap-2"
+                          >
+                            <CalendarClock className="w-4 h-4" />
+                            推迟接种
+                          </button>
+                        </>
                       )}
-                      {schedule.status === '已错过' && (
-                        <button
-                          onClick={() => updateVaccineScheduleStatus(schedule.id, '已推迟')}
-                          className="btn-outline lg:w-full"
-                        >
-                          标记为已推迟
-                        </button>
+                      {schedule.status === '已推迟' && !record && (
+                        <>
+                          <button
+                            onClick={() => openRecordModal(schedule)}
+                            className="btn-primary flex items-center justify-center gap-2 lg:w-full"
+                          >
+                            <Plus className="w-4 h-4" />
+                            录入记录
+                          </button>
+                          <button
+                            onClick={() => openPostponeModal(schedule)}
+                            className="btn-outline lg:w-full flex items-center justify-center gap-2"
+                          >
+                            <RotateCcw className="w-4 h-4" />
+                            再次调整
+                          </button>
+                        </>
                       )}
                     </div>
                   </div>
@@ -559,6 +639,115 @@ export default function VaccineSchedulePage() {
                 <button type="submit" className="flex-1 btn-primary flex items-center justify-center gap-2">
                   <CheckCircle className="w-5 h-5" />
                   保存记录
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showPostponeModal && postponeSchedule && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white rounded-3xl shadow-soft-lg max-w-lg w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-gradient-to-r from-amber-400 to-orange-400 p-6 text-white rounded-t-3xl flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-display flex items-center gap-2">
+                  <CalendarClock className="w-6 h-6" />
+                  调整接种计划
+                </h2>
+                <p className="text-white/80 text-sm mt-1">
+                  {postponeSchedule.vaccineName} · 第{postponeSchedule.doseNumber}剂
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowPostponeModal(false);
+                  setPostponeSchedule(null);
+                }}
+                className="w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmitPostpone} className="p-6 space-y-5">
+              <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-100">
+                <p className="text-sm text-amber-700">
+                  <AlertTriangle className="w-4 h-4 inline mr-1" />
+                  推迟此针次后，系统将自动计算后续同疫苗针次的最小间隔日期并调整计划时间线。
+                </p>
+              </div>
+
+              <div>
+                <label className="label-field">当前计划日期</label>
+                <div className="input-field bg-slate-50 text-slate-500 flex items-center gap-2">
+                  <span className="line-through">{formatDate(postponeSchedule.plannedDate, 'YYYY年MM月DD日')}</span>
+                </div>
+              </div>
+
+              <div>
+                <label className="label-field">
+                  <span className="text-red-400">*</span> 新的接种日期
+                </label>
+                <input
+                  type="date"
+                  className="input-field"
+                  value={postponeForm.newDate}
+                  min={addDays(postponeSchedule.plannedDate, 1)}
+                  onChange={(e) => setPostponeForm({ ...postponeForm, newDate: e.target.value })}
+                  required
+                />
+                <p className="text-xs text-slate-400 mt-2">
+                  请选择在原计划日期之后的日期
+                </p>
+              </div>
+
+              <div>
+                <label className="label-field">
+                  <span className="text-red-400">*</span> 推迟原因
+                </label>
+                <div className="grid grid-cols-3 gap-2 mb-3">
+                  {commonReasons.map((reason) => (
+                    <button
+                      key={reason}
+                      type="button"
+                      onClick={() => setPostponeForm({ ...postponeForm, reason })}
+                      className={`py-2 px-3 rounded-xl text-sm font-medium transition-all border-2 ${
+                        postponeForm.reason === reason
+                          ? 'border-amber-400 bg-amber-50 text-amber-600'
+                          : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300'
+                      }`}
+                    >
+                      {reason}
+                    </button>
+                  ))}
+                </div>
+                {postponeForm.reason === '其他原因' && (
+                  <input
+                    type="text"
+                    className="input-field"
+                    placeholder="请说明具体原因"
+                    value={postponeForm.reason === '其他原因' ? '' : postponeForm.reason}
+                    onChange={(e) => setPostponeForm({ ...postponeForm, reason: e.target.value || '其他原因' })}
+                    required
+                  />
+                )}
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowPostponeModal(false);
+                    setPostponeSchedule(null);
+                  }}
+                  className="flex-1 btn-outline"
+                >
+                  取消
+                </button>
+                <button type="submit" className="flex-1 btn-primary bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-500 hover:to-orange-500 flex items-center justify-center gap-2">
+                  <CheckCircle className="w-5 h-5" />
+                  确认调整
                 </button>
               </div>
             </form>

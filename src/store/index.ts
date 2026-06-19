@@ -24,6 +24,7 @@ import {
   getToday,
   addDays,
   getDaysBetween,
+  recalculateSubsequentDoses,
 } from '@/utils/dateUtils';
 import {
   createBackupData,
@@ -73,6 +74,7 @@ interface AppState {
 
   updateVaccineScheduleStatus: (scheduleId: string, status: VaccineSchedule['status']) => void;
   updateCheckupScheduleStatus: (scheduleId: string, status: CheckupSchedule['status']) => void;
+  postponeVaccineSchedule: (scheduleId: string, newPlannedDate: string, reason: string) => void;
 
   addReactionLog: (diaryId: string, log: Omit<ReactionLogEntry, 'id' | 'createdAt'>) => void;
   updateReactionLog: (diaryId: string, logId: string, data: Partial<ReactionLogEntry>) => void;
@@ -495,6 +497,51 @@ export const useAppStore = create<AppState>()(
         get().refreshReminders();
       },
 
+      postponeVaccineSchedule: (scheduleId, newPlannedDate, reason) => {
+        const state = get();
+        const child = state.currentChild;
+        if (!child) return;
+
+        const { updatedSchedules, affectedCount } = recalculateSubsequentDoses(
+          state.vaccineSchedules,
+          scheduleId,
+          newPlannedDate,
+          reason,
+          child.birthDate
+        );
+
+        const adjustedSchedule = updatedSchedules.find(s => s.id === scheduleId);
+        if (!adjustedSchedule) return;
+
+        const adjustNotification: Reminder = {
+          id: generateId(),
+          childId: child.id,
+          type: 'schedule_adjust',
+          relatedId: scheduleId,
+          title: `${adjustedSchedule.vaccineShortName}接种计划已调整`,
+          dueDate: newPlannedDate,
+          remindDate: getToday(),
+          status: '已提醒',
+          daysBefore: 0,
+          notifiedAt: new Date().toISOString(),
+          adjustDetail: {
+            vaccineName: adjustedSchedule.vaccineName,
+            doseNumber: adjustedSchedule.doseNumber,
+            oldDate: adjustedSchedule.adjustedFrom || adjustedSchedule.originalPlannedDate,
+            newDate: newPlannedDate,
+            reason: reason,
+            affectedCount: affectedCount,
+          },
+        };
+
+        set((state) => ({
+          vaccineSchedules: updatedSchedules,
+          reminders: [adjustNotification, ...state.reminders],
+        }));
+
+        get().refreshReminders();
+      },
+
       updateCheckupScheduleStatus: (scheduleId, status) => {
         set((state) => ({
           checkupSchedules: state.checkupSchedules.map((s) =>
@@ -713,6 +760,18 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: 'vaccine-checkup-storage',
+      migrate: (persistedState: unknown) => {
+        const state = persistedState as Partial<AppState>;
+        
+        if (state.vaccineSchedules) {
+          state.vaccineSchedules = state.vaccineSchedules.map(schedule => ({
+            ...schedule,
+            originalPlannedDate: schedule.originalPlannedDate || schedule.plannedDate,
+          }));
+        }
+        
+        return state as AppState;
+      },
     }
   )
 );

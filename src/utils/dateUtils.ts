@@ -56,7 +56,7 @@ export function formatTime(date: Date | string): string {
   return `${hours}:${minutes}`;
 }
 
-export function formatDate(date: Date | string, format: 'YYYY-MM-DD' | 'YYYY年MM月DD日' | 'MM/DD' = 'YYYY-MM-DD'): string {
+export function formatDate(date: Date | string, format: 'YYYY-MM-DD' | 'YYYY年MM月DD日' | 'MM/DD' | 'MM月DD日' = 'YYYY-MM-DD'): string {
   const d = typeof date === 'string' ? new Date(date) : new Date(date);
   const year = d.getFullYear();
   const month = String(d.getMonth() + 1).padStart(2, '0');
@@ -65,6 +65,8 @@ export function formatDate(date: Date | string, format: 'YYYY-MM-DD' | 'YYYY年M
   switch (format) {
     case 'YYYY年MM月DD日':
       return `${year}年${month}月${day}日`;
+    case 'MM月DD日':
+      return `${month}月${day}日`;
     case 'MM/DD':
       return `${month}/${day}`;
     default:
@@ -129,6 +131,7 @@ export function generateVaccineSchedules(childId: string, birthDate: string): Va
         preventDisease: vaccine.preventDisease,
         monthAge: dose.recommendedMonthAge,
         plannedDate,
+        originalPlannedDate: plannedDate,
         status: '待接种',
         route: vaccine.route,
         site: dose.site,
@@ -142,6 +145,88 @@ export function generateVaccineSchedules(childId: string, birthDate: string): Va
   schedules.sort((a, b) => a.monthAge - b.monthAge);
   updateScheduleStatus(schedules);
   return schedules;
+}
+
+export function recalculateSubsequentDoses(
+  schedules: VaccineSchedule[],
+  adjustedScheduleId: string,
+  newPlannedDate: string,
+  reason: string,
+  childBirthDate: string
+): { updatedSchedules: VaccineSchedule[]; affectedCount: number } {
+  const adjustedIndex = schedules.findIndex(s => s.id === adjustedScheduleId);
+  if (adjustedIndex === -1) {
+    return { updatedSchedules: schedules, affectedCount: 0 };
+  }
+
+  const adjustedSchedule = schedules[adjustedIndex];
+  const vaccineCode = adjustedSchedule.vaccineCode;
+  const childId = adjustedSchedule.childId;
+  const now = new Date().toISOString();
+
+  const updatedSchedules = [...schedules];
+  let affectedCount = 0;
+
+  updatedSchedules[adjustedIndex] = {
+    ...adjustedSchedule,
+    plannedDate: newPlannedDate,
+    status: '已推迟',
+    isAdjusted: true,
+    adjustReason: reason,
+    adjustedAt: now,
+    adjustedFrom: adjustedSchedule.plannedDate,
+  };
+
+  const sameVaccineSchedules = updatedSchedules
+    .filter(s => s.vaccineCode === vaccineCode && s.childId === childId && s.status !== '已接种')
+    .sort((a, b) => a.doseNumber - b.doseNumber);
+
+  const adjustedDoseNumber = adjustedSchedule.doseNumber;
+  let lastDate = newPlannedDate;
+
+  for (let i = 0; i < sameVaccineSchedules.length; i++) {
+    const schedule = sameVaccineSchedules[i];
+    if (schedule.doseNumber <= adjustedDoseNumber) continue;
+    if (schedule.status === '已接种') continue;
+
+    const vaccineDef = VACCINE_DEFINITIONS.find(v => v.code === vaccineCode);
+    if (!vaccineDef) continue;
+
+    const doseDef = vaccineDef.doses.find(d => d.doseNumber === schedule.doseNumber);
+    const prevDoseDef = vaccineDef.doses.find(d => d.doseNumber === schedule.doseNumber - 1);
+    
+    let intervalDays = 28;
+    if (prevDoseDef?.intervalAfterPrevious) {
+      intervalDays = prevDoseDef.intervalAfterPrevious;
+    }
+
+    const minAllowedDate = addDays(lastDate, intervalDays);
+    const minMonthAgeDate = addMonths(childBirthDate, doseDef?.monthAgeMin || 0);
+
+    let finalDate = minAllowedDate;
+    if (getDaysBetween(minMonthAgeDate, minAllowedDate) < 0) {
+      finalDate = minMonthAgeDate;
+    }
+
+    if (schedule.plannedDate !== finalDate) {
+      const scheduleIndex = updatedSchedules.findIndex(s => s.id === schedule.id);
+      if (scheduleIndex !== -1) {
+        updatedSchedules[scheduleIndex] = {
+          ...schedule,
+          plannedDate: finalDate,
+          isAdjusted: true,
+          adjustReason: `因第${adjustedDoseNumber}剂${reason}顺延`,
+          adjustedAt: now,
+          adjustedFrom: schedule.plannedDate,
+        };
+        affectedCount++;
+      }
+    }
+
+    lastDate = finalDate;
+  }
+
+  return { updatedSchedules, affectedCount };
 }
 
 export function generateCheckupSchedules(childId: string, birthDate: string): CheckupSchedule[] {

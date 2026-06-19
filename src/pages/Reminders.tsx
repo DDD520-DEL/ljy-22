@@ -20,6 +20,9 @@ import {
   Lightbulb,
   AlertTriangle,
   HardDrive,
+  CalendarClock,
+  ArrowRight,
+  Sparkles,
 } from 'lucide-react';
 import { useAppStore } from '@/store';
 import type { Reminder, VaccineSchedule } from '@/types';
@@ -99,6 +102,14 @@ export default function RemindersPage() {
   };
 
   const getReminderStyle = (reminder: Reminder) => {
+    if (reminder.type === 'schedule_adjust') {
+      return {
+        bg: 'bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200',
+        badge: 'bg-gradient-to-r from-amber-400 to-orange-400 text-white',
+        icon: CalendarClock,
+        label: '计划调整',
+      };
+    }
     const daysToDue = getDaysBetween(today, reminder.dueDate);
     if (reminder.status === '已完成') {
       return {
@@ -162,7 +173,7 @@ export default function RemindersPage() {
     if (reminder.type === 'abnormal') {
       navigate('/checkup-schedule');
     } else if (reminder.type !== 'backup') {
-      navigate(reminder.type === 'vaccine' ? '/vaccine-schedule' : '/checkup-schedule');
+      navigate(reminder.type === 'vaccine' || reminder.type === 'schedule_adjust' ? '/vaccine-schedule' : '/checkup-schedule');
     }
   };
 
@@ -430,8 +441,10 @@ export default function RemindersPage() {
                         ? 'bg-gradient-to-br from-red-200 to-red-400'
                         : reminder.type === 'backup'
                         ? 'bg-gradient-to-br from-purple-300 to-purple-500'
+                        : reminder.type === 'schedule_adjust'
+                        ? 'bg-gradient-to-br from-amber-300 to-orange-400'
                         : 'bg-gradient-to-br from-coral-200 to-coral-400'
-                    } ${daysToDue <= 1 && reminder.status !== '已完成' ? 'animate-pulse-soft' : ''}`}
+                    } ${daysToDue <= 1 && reminder.status !== '已完成' && reminder.type !== 'schedule_adjust' ? 'animate-pulse-soft' : ''}`}
                   >
                     {reminder.type === 'vaccine' ? (
                       <Syringe className="w-7 h-7 text-white" />
@@ -439,6 +452,8 @@ export default function RemindersPage() {
                       <AlertOctagon className="w-7 h-7 text-white" />
                     ) : reminder.type === 'backup' ? (
                       <HardDrive className="w-7 h-7 text-white" />
+                    ) : reminder.type === 'schedule_adjust' ? (
+                      <CalendarClock className="w-7 h-7 text-white" />
                     ) : (
                       <Stethoscope className="w-7 h-7 text-white" />
                     )}
@@ -487,17 +502,19 @@ export default function RemindersPage() {
                         </p>
                         <div className="flex items-center gap-2 mt-1">
                           <p className="text-xs text-slate-400">
-                            {reminder.type === 'vaccine'
-                              ? '💉 疫苗接种'
-                              : reminder.type === 'abnormal'
-                              ? '⚠️ 异常复查'
-                              : reminder.type === 'backup'
-                              ? '💾 数据备份'
-                              : '🏥 儿保体检'}
-                            {reminder.status === '待提醒' && reminder.type !== 'backup' && (
+                          {reminder.type === 'vaccine'
+                            ? '💉 疫苗接种'
+                            : reminder.type === 'abnormal'
+                            ? '⚠️ 异常复查'
+                            : reminder.type === 'backup'
+                            ? '💾 数据备份'
+                            : reminder.type === 'schedule_adjust'
+                            ? '📅 接种计划调整'
+                            : '🏥 儿保体检'}
+                            {reminder.status === '待提醒' && reminder.type !== 'backup' && reminder.type !== 'schedule_adjust' && (
                               <> · {reminder.daysBefore}天前开始提醒</>
                             )}
-                          </p>
+                        </p>
                           {babyFilter === 'all' && child && reminder.type !== 'backup' && (
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-slate-100 text-slate-600">
                               {getGenderEmoji(child.gender)} {child.name}
@@ -538,6 +555,38 @@ export default function RemindersPage() {
                                 </div>
                               </div>
                             )}
+                          </div>
+                        )}
+
+                        {reminder.type === 'schedule_adjust' && reminder.adjustDetail && (
+                          <div className="mt-3 space-y-2">
+                            <div className="flex items-start gap-1.5 p-3 rounded-xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-100">
+                              <Sparkles className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+                              <div className="text-xs text-slate-600 leading-relaxed flex-1">
+                                <p className="font-semibold text-amber-700 mb-2">
+                                  {reminder.adjustDetail.vaccineName} 第{reminder.adjustDetail.doseNumber}剂
+                                </p>
+                                <div className="flex items-center gap-2 mb-2">
+                                  <span className="text-slate-500">日期调整：</span>
+                                  <span className="line-through text-slate-400">
+                                    {formatDate(reminder.adjustDetail.oldDate, 'MM月DD日')}
+                                  </span>
+                                  <ArrowRight className="w-3 h-3 text-amber-500" />
+                                  <span className="font-medium text-amber-600">
+                                    {formatDate(reminder.adjustDetail.newDate, 'MM月DD日')}
+                                  </span>
+                                </div>
+                                <p className="text-slate-500">
+                                  <span className="text-slate-400">调整原因：</span>
+                                  {reminder.adjustDetail.reason}
+                                </p>
+                                {reminder.adjustDetail.affectedCount > 0 && (
+                                  <p className="mt-2 text-amber-600 font-medium">
+                                    ⚠️ 此次调整影响后续 {reminder.adjustDetail.affectedCount} 剂次接种时间
+                                  </p>
+                                )}
+                              </div>
+                            </div>
                           </div>
                         )}
                       </div>

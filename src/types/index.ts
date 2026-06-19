@@ -47,12 +47,17 @@ export interface VaccineSchedule {
   preventDisease: string;
   monthAge: number;
   plannedDate: string;
+  originalPlannedDate: string;
   status: '待接种' | '已接种' | '已推迟' | '已错过';
   route: string;
   site: string;
   contraindications: string;
   notes?: string;
   category: '一类' | '二类';
+  isAdjusted?: boolean;
+  adjustReason?: string;
+  adjustedAt?: string;
+  adjustedFrom?: string;
 }
 
 export interface VaccineRecord {
@@ -140,7 +145,7 @@ export interface MilestoneAssessment {
 export interface Reminder {
   id: string;
   childId: string;
-  type: 'vaccine' | 'checkup' | 'abnormal' | 'backup';
+  type: 'vaccine' | 'checkup' | 'abnormal' | 'backup' | 'schedule_adjust';
   relatedId: string;
   title: string;
   dueDate: string;
@@ -148,6 +153,14 @@ export interface Reminder {
   status: '待提醒' | '已提醒' | '已完成';
   daysBefore: number;
   notifiedAt?: string;
+  adjustDetail?: {
+    vaccineName: string;
+    doseNumber: number;
+    oldDate: string;
+    newDate: string;
+    reason: string;
+    affectedCount: number;
+  };
 }
 
 export interface BackupData {
