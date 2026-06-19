@@ -21,6 +21,7 @@ import VaccineQueryPage from "@/pages/VaccineQuery";
 import ParentingEncyclopedia from "@/pages/ParentingEncyclopedia";
 import ArticleDetail from "@/pages/ArticleDetail";
 import Favorites from "@/pages/Favorites";
+import CheckupQuickRef from "@/pages/CheckupQuickRef";
 
 export default function App() {
   return (
@@ -49,6 +50,7 @@ export default function App() {
           <Route path="parenting" element={<ParentingEncyclopedia />} />
           <Route path="parenting/article/:id" element={<ArticleDetail />} />
           <Route path="favorites" element={<Favorites />} />
+          <Route path="checkup-quick-ref" element={<CheckupQuickRef />} />
           <Route path="*" element={<Dashboard />} />
         </Route>
       </Routes>

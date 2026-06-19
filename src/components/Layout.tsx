@@ -34,6 +34,7 @@ import {
   Search,
   BookOpen,
   Heart,
+  ClipboardList,
 } from 'lucide-react';
 import { useAppStore } from '@/store';
 import { formatDateTime, getToday, getDaysBetween } from '@/utils/dateUtils';
@@ -46,6 +47,7 @@ const navItems = [
   { path: '/vaccine-schedule', icon: Syringe, label: '疫苗接种' },
   { path: '/vaccine-certificate', icon: Shield, label: '电子接种证' },
   { path: '/checkup-schedule', icon: Stethoscope, label: '儿保体检' },
+  { path: '/checkup-quick-ref', icon: ClipboardList, label: '体检速查表' },
   { path: '/temperature', icon: Thermometer, label: '体温记录' },
   { path: '/sleep', icon: Moon, label: '睡眠记录' },
   { path: '/allergy', icon: ShieldAlert, label: '过敏原记录' },
