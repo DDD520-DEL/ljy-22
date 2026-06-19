@@ -9,6 +9,7 @@ import RemindersPage from "@/pages/Reminders";
 import RecordsPage from "@/pages/Records";
 import ExportPrintPage from "@/pages/ExportPrint";
 import VaccineCertificatePage from "@/pages/VaccineCertificate";
+import CheckupComparePage from "@/pages/CheckupCompare";
 
 export default function App() {
   return (
@@ -23,6 +24,7 @@ export default function App() {
           <Route path="reaction-diary/:id" element={<ReactionDiaryPage />} />
           <Route path="reminders" element={<RemindersPage />} />
           <Route path="records" element={<RecordsPage />} />
+          <Route path="checkup-compare" element={<CheckupComparePage />} />
           <Route path="export" element={<ExportPrintPage />} />
           <Route path="vaccine-certificate" element={<VaccineCertificatePage />} />
           <Route path="*" element={<Dashboard />} />

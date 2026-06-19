@@ -21,6 +21,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   Settings,
+  ArrowLeftRight,
 } from 'lucide-react';
 import { useAppStore } from '@/store';
 import { formatDateTime, getToday, getDaysBetween } from '@/utils/dateUtils';
@@ -36,6 +37,7 @@ const navItems = [
   { path: '/reaction-diary', icon: Activity, label: '反应日记' },
   { path: '/reminders', icon: Bell, label: '提醒中心' },
   { path: '/records', icon: FileText, label: '记录管理' },
+  { path: '/checkup-compare', icon: ArrowLeftRight, label: '体检对比' },
   { path: '/export', icon: Printer, label: '导出打印' },
 ];
 

@@ -14,6 +14,7 @@ import {
   TrendingUp,
   Activity,
   ExternalLink,
+  ArrowLeftRight,
 } from 'lucide-react';
 import { useAppStore } from '@/store';
 import type { VaccineRecord, CheckupRecord, VaccineReactionDiary } from '@/types';
@@ -164,15 +165,25 @@ export default function RecordsPage() {
           <p className="text-slate-500 mt-1">查看和管理所有疫苗接种和儿保体检记录</p>
         </div>
 
-        <div className="relative">
-          <Search className="w-5 h-5 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            className="input-field pl-12 pr-4 w-full md:w-72"
-            placeholder="搜索疫苗名称、厂家、批号..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+        <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+          <button
+            onClick={() => navigate('/checkup-compare')}
+            className="btn-secondary flex items-center gap-2"
+          >
+            <ArrowLeftRight className="w-5 h-5" />
+            体检对比
+          </button>
+
+          <div className="relative">
+            <Search className="w-5 h-5 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              className="input-field pl-12 pr-4 w-full md:w-72"
+              placeholder="搜索疫苗名称、厂家、批号..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
         </div>
       </div>
 
