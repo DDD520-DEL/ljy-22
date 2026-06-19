@@ -176,6 +176,7 @@ export interface BackupData {
   reactionDiaries: VaccineReactionDiary[];
   milestoneAssessments: MilestoneAssessment[];
   abnormalItems: AbnormalItem[];
+  temperatureRecords: TemperatureRecord[];
   settings: AppSettings;
 }
 
@@ -242,4 +243,29 @@ export interface VaccineReactionDiary {
   summary?: ReactionSummary;
   createdAt: string;
   updatedAt: string;
+}
+
+export type TemperatureSite = '腋下' | '口腔' | '额温' | '耳温' | '肛温';
+
+export interface TemperatureRecord {
+  id: string;
+  childId: string;
+  temperature: number;
+  site: TemperatureSite;
+  measureDate: string;
+  measureTime: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export function isFever(temperature: number, site: TemperatureSite): boolean {
+  const thresholds: Record<TemperatureSite, number> = {
+    '腋下': 37.2,
+    '口腔': 37.5,
+    '额温': 37.2,
+    '耳温': 37.5,
+    '肛温': 38.0,
+  };
+  return temperature >= thresholds[site];
 }

@@ -14,6 +14,7 @@ import type {
   MilestoneAssessment,
   AbnormalItem,
   BackupData,
+  TemperatureRecord,
 } from '@/types';
 import {
   generateVaccineSchedules,
@@ -43,6 +44,7 @@ interface AppState {
   reactionDiaries: VaccineReactionDiary[];
   milestoneAssessments: MilestoneAssessment[];
   abnormalItems: AbnormalItem[];
+  temperatureRecords: TemperatureRecord[];
   settings: AppSettings;
 
   get currentChild(): Child | null;
@@ -69,6 +71,10 @@ interface AppState {
   addAbnormalItems: (items: Omit<AbnormalItem, 'id' | 'childId' | 'createdAt'>[]) => void;
   resolveAbnormalItem: (id: string) => void;
   archiveResolvedAbnormalItems: () => void;
+
+  addTemperatureRecord: (record: Omit<TemperatureRecord, 'id' | 'childId' | 'createdAt' | 'updatedAt'>) => void;
+  updateTemperatureRecord: (id: string, data: Partial<TemperatureRecord>) => void;
+  deleteTemperatureRecord: (id: string) => void;
 
   updateSettings: (settings: Partial<AppSettings>) => void;
 
@@ -105,6 +111,7 @@ export const useAppStore = create<AppState>()(
       reactionDiaries: [],
       milestoneAssessments: [],
       abnormalItems: [],
+      temperatureRecords: [],
       settings: initialSettings,
 
       get currentChild() {
@@ -183,6 +190,7 @@ export const useAppStore = create<AppState>()(
           const newReactionDiaries = state.reactionDiaries.filter((d) => d.childId !== id);
           const newMilestoneAssessments = state.milestoneAssessments.filter((a) => a.childId !== id);
           const newAbnormalItems = state.abnormalItems.filter((a) => a.childId !== id);
+          const newTemperatureRecords = state.temperatureRecords.filter((r) => r.childId !== id);
 
           let newCurrentChildId = state.currentChildId;
           if (state.currentChildId === id) {
@@ -200,6 +208,7 @@ export const useAppStore = create<AppState>()(
             reactionDiaries: newReactionDiaries,
             milestoneAssessments: newMilestoneAssessments,
             abnormalItems: newAbnormalItems,
+            temperatureRecords: newTemperatureRecords,
           };
         });
       },
@@ -466,6 +475,39 @@ export const useAppStore = create<AppState>()(
         }));
       },
 
+      addTemperatureRecord: (record) => {
+        const state = get();
+        if (!state.currentChildId) return;
+
+        const now = new Date().toISOString();
+        const newRecord: TemperatureRecord = {
+          ...record,
+          id: generateId(),
+          childId: state.currentChildId,
+          createdAt: now,
+          updatedAt: now,
+        };
+
+        set((state) => ({
+          temperatureRecords: [...state.temperatureRecords, newRecord],
+        }));
+      },
+
+      updateTemperatureRecord: (id, data) => {
+        const now = new Date().toISOString();
+        set((state) => ({
+          temperatureRecords: state.temperatureRecords.map((r) =>
+            r.id === id ? { ...r, ...data, updatedAt: now } : r
+          ),
+        }));
+      },
+
+      deleteTemperatureRecord: (id) => {
+        set((state) => ({
+          temperatureRecords: state.temperatureRecords.filter((r) => r.id !== id),
+        }));
+      },
+
       updateSettings: (settings) => {
         const state = get();
         const newSettings = { ...state.settings, ...settings };
@@ -703,6 +745,7 @@ export const useAppStore = create<AppState>()(
           reactionDiaries: data.reactionDiaries,
           milestoneAssessments: data.milestoneAssessments,
           abnormalItems: data.abnormalItems,
+          temperatureRecords: data.temperatureRecords || [],
           settings: data.settings,
         });
         return data;

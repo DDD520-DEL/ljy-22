@@ -4,6 +4,7 @@ import Dashboard from "@/pages/Dashboard";
 import ChildInfo from "@/pages/ChildInfo";
 import VaccineSchedulePage from "@/pages/VaccineSchedule";
 import CheckupSchedulePage from "@/pages/CheckupSchedule";
+import TemperatureRecordPage from "@/pages/TemperatureRecord";
 import ReactionDiaryPage from "@/pages/ReactionDiary";
 import RemindersPage from "@/pages/Reminders";
 import RecordsPage from "@/pages/Records";
@@ -20,6 +21,7 @@ export default function App() {
           <Route path="child-info" element={<ChildInfo />} />
           <Route path="vaccine-schedule" element={<VaccineSchedulePage />} />
           <Route path="checkup-schedule" element={<CheckupSchedulePage />} />
+          <Route path="temperature" element={<TemperatureRecordPage />} />
           <Route path="reaction-diary" element={<ReactionDiaryPage />} />
           <Route path="reaction-diary/:id" element={<ReactionDiaryPage />} />
           <Route path="reminders" element={<RemindersPage />} />

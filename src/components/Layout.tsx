@@ -22,6 +22,7 @@ import {
   CheckCircle2,
   Settings,
   ArrowLeftRight,
+  Thermometer,
 } from 'lucide-react';
 import { useAppStore } from '@/store';
 import { formatDateTime, getToday, getDaysBetween } from '@/utils/dateUtils';
@@ -34,6 +35,7 @@ const navItems = [
   { path: '/vaccine-schedule', icon: Syringe, label: '疫苗接种' },
   { path: '/vaccine-certificate', icon: Shield, label: '电子接种证' },
   { path: '/checkup-schedule', icon: Stethoscope, label: '儿保体检' },
+  { path: '/temperature', icon: Thermometer, label: '体温记录' },
   { path: '/reaction-diary', icon: Activity, label: '反应日记' },
   { path: '/reminders', icon: Bell, label: '提醒中心' },
   { path: '/records', icon: FileText, label: '记录管理' },

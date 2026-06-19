@@ -10,6 +10,7 @@ import type {
   MilestoneAssessment,
   AbnormalItem,
   AppSettings,
+  TemperatureRecord,
 } from '@/types';
 import { formatDate, formatDateTime } from './dateUtils';
 
@@ -27,6 +28,7 @@ interface BackupState {
   reactionDiaries: VaccineReactionDiary[];
   milestoneAssessments: MilestoneAssessment[];
   abnormalItems: AbnormalItem[];
+  temperatureRecords: TemperatureRecord[];
   settings: AppSettings;
 }
 
@@ -44,6 +46,7 @@ export function createBackupData(state: BackupState): BackupData {
     reactionDiaries: state.reactionDiaries,
     milestoneAssessments: state.milestoneAssessments,
     abnormalItems: state.abnormalItems,
+    temperatureRecords: state.temperatureRecords,
     settings: state.settings,
   };
 }
@@ -64,6 +67,7 @@ export function validateBackupData(data: unknown): data is BackupData {
   if (!Array.isArray(d.reactionDiaries)) return false;
   if (!Array.isArray(d.milestoneAssessments)) return false;
   if (!Array.isArray(d.abnormalItems)) return false;
+  if (!Array.isArray(d.temperatureRecords)) return false;
   if (typeof d.settings !== 'object' || d.settings === null) return false;
 
   return true;
@@ -110,6 +114,7 @@ export function getBackupSummary(data: BackupData): string {
   const vaccineRecordCount = data.vaccineRecords.length;
   const checkupRecordCount = data.checkupRecords.length;
   const milestoneCount = data.milestoneAssessments.length;
+  const temperatureCount = data.temperatureRecords?.length || 0;
   const exportDate = formatDateTime(data.exportedAt);
 
   return `备份时间：${exportDate}
@@ -117,5 +122,6 @@ export function getBackupSummary(data: BackupData): string {
 接种记录：${vaccineRecordCount} 条
 体检记录：${checkupRecordCount} 条
 发育评估：${milestoneCount} 次
+体温记录：${temperatureCount} 条
 版本：v${data.version}`;
 }

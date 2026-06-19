@@ -14,6 +14,7 @@ import {
   Activity,
   Shield,
   AlertOctagon,
+  Thermometer,
 } from 'lucide-react';
 import { useAppStore } from '@/store';
 import {
@@ -25,11 +26,13 @@ import {
   getToday,
 } from '@/utils/dateUtils';
 import { GrowthSummaryCard } from '@/components/GrowthSummaryCard';
+import { TemperatureCard } from '@/components/TemperatureCard';
 
 const quickLinks = [
   { path: '/vaccine-schedule', icon: Syringe, label: '疫苗接种', color: 'from-mint-400 to-mint-500', emoji: '💉' },
   { path: '/vaccine-certificate', icon: Shield, label: '电子接种证', color: 'from-emerald-400 to-emerald-500', emoji: '📘' },
   { path: '/checkup-schedule', icon: Stethoscope, label: '儿保体检', color: 'from-coral-400 to-coral-500', emoji: '🏥' },
+  { path: '/temperature', icon: Thermometer, label: '体温记录', color: 'from-rose-400 to-rose-500', emoji: '🌡️' },
   { path: '/reaction-diary', icon: Activity, label: '反应日记', color: 'from-teal-400 to-teal-500', emoji: '📝' },
   { path: '/reminders', icon: Bell, label: '提醒中心', color: 'from-amber-400 to-amber-500', emoji: '🔔' },
   { path: '/records', icon: FileText, label: '记录管理', color: 'from-blue-400 to-blue-500', emoji: '📋' },
@@ -38,7 +41,7 @@ const quickLinks = [
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { children, currentChildId, vaccineSchedules, checkupSchedules, reminders, vaccineRecords, checkupRecords, reactionDiaries, abnormalItems, refreshReminders } =
+  const { children, currentChildId, vaccineSchedules, checkupSchedules, reminders, vaccineRecords, checkupRecords, reactionDiaries, abnormalItems, temperatureRecords, refreshReminders } =
     useAppStore();
 
   const child = children.find((c) => c.id === currentChildId) || null;
@@ -49,6 +52,7 @@ export default function Dashboard() {
   const currentReminders = reminders.filter((r) => r.childId === currentChildId);
   const currentReactionDiaries = reactionDiaries.filter((d) => d.childId === currentChildId);
   const currentAbnormalItems = abnormalItems.filter((a) => a.childId === currentChildId && a.status === '待复查');
+  const currentTemperatureRecords = temperatureRecords.filter((r) => r.childId === currentChildId);
   const activeDiaries = currentReactionDiaries.filter((d) => d.status === '观察中');
 
   useEffect(() => {
@@ -161,7 +165,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <div className="card card-hover">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold text-lg text-slate-800 flex items-center gap-2">
@@ -217,6 +221,8 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
+
+        <TemperatureCard records={currentTemperatureRecords} />
       </div>
 
       <div className="card">
@@ -369,7 +375,7 @@ export default function Dashboard() {
           <span className="text-2xl">🚀</span>
           快捷入口
         </h3>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
           {quickLinks.map((link) => {
             const Icon = link.icon;
             return (
