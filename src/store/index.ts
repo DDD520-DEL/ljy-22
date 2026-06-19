@@ -17,6 +17,7 @@ import type {
   TemperatureRecord,
   MedicationReminder,
   MedicationDoseStatus,
+  SleepRecord,
 } from '@/types';
 import {
   generateVaccineSchedules,
@@ -49,6 +50,7 @@ interface AppState {
   abnormalItems: AbnormalItem[];
   temperatureRecords: TemperatureRecord[];
   medicationReminders: MedicationReminder[];
+  sleepRecords: SleepRecord[];
   settings: AppSettings;
 
   get currentChild(): Child | null;
@@ -87,6 +89,10 @@ interface AppState {
   cancelMedicationReminder: (id: string) => void;
   refreshMedicationDoseStatus: () => void;
 
+  addSleepRecord: (record: Omit<SleepRecord, 'id' | 'childId' | 'createdAt' | 'updatedAt'>) => void;
+  updateSleepRecord: (id: string, data: Partial<SleepRecord>) => void;
+  deleteSleepRecord: (id: string) => void;
+
   updateSettings: (settings: Partial<AppSettings>) => void;
 
   updateVaccineScheduleStatus: (scheduleId: string, status: VaccineSchedule['status']) => void;
@@ -124,6 +130,7 @@ export const useAppStore = create<AppState>()(
       abnormalItems: [],
       temperatureRecords: [],
       medicationReminders: [],
+      sleepRecords: [],
       settings: initialSettings,
 
       get currentChild() {
@@ -204,6 +211,7 @@ export const useAppStore = create<AppState>()(
           const newAbnormalItems = state.abnormalItems.filter((a) => a.childId !== id);
           const newTemperatureRecords = state.temperatureRecords.filter((r) => r.childId !== id);
           const newMedicationReminders = state.medicationReminders.filter((m) => m.childId !== id);
+          const newSleepRecords = state.sleepRecords.filter((r) => r.childId !== id);
 
           let newCurrentChildId = state.currentChildId;
           if (state.currentChildId === id) {
@@ -223,6 +231,7 @@ export const useAppStore = create<AppState>()(
             abnormalItems: newAbnormalItems,
             temperatureRecords: newTemperatureRecords,
             medicationReminders: newMedicationReminders,
+            sleepRecords: newSleepRecords,
           };
         });
       },
@@ -656,6 +665,39 @@ export const useAppStore = create<AppState>()(
         }));
       },
 
+      addSleepRecord: (record) => {
+        const state = get();
+        if (!state.currentChildId) return;
+
+        const now = new Date().toISOString();
+        const newRecord: SleepRecord = {
+          ...record,
+          id: generateId(),
+          childId: state.currentChildId,
+          createdAt: now,
+          updatedAt: now,
+        };
+
+        set((state) => ({
+          sleepRecords: [...state.sleepRecords, newRecord],
+        }));
+      },
+
+      updateSleepRecord: (id, data) => {
+        const now = new Date().toISOString();
+        set((state) => ({
+          sleepRecords: state.sleepRecords.map((r) =>
+            r.id === id ? { ...r, ...data, updatedAt: now } : r
+          ),
+        }));
+      },
+
+      deleteSleepRecord: (id) => {
+        set((state) => ({
+          sleepRecords: state.sleepRecords.filter((r) => r.id !== id),
+        }));
+      },
+
       updateSettings: (settings) => {
         const state = get();
         const newSettings = { ...state.settings, ...settings };
@@ -895,6 +937,7 @@ export const useAppStore = create<AppState>()(
           abnormalItems: data.abnormalItems,
           temperatureRecords: data.temperatureRecords || [],
           medicationReminders: data.medicationReminders || [],
+          sleepRecords: data.sleepRecords || [],
           settings: data.settings,
         });
         return data;
@@ -973,6 +1016,10 @@ export const useAppStore = create<AppState>()(
 
         if (!state.medicationReminders) {
           state.medicationReminders = [];
+        }
+
+        if (!state.sleepRecords) {
+          state.sleepRecords = [];
         }
         
         return state as AppState;

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   Syringe,
@@ -16,6 +16,7 @@ import {
   AlertOctagon,
   Thermometer,
   Pill,
+  Moon,
   Check,
   SkipForward,
 } from 'lucide-react';
@@ -37,6 +38,7 @@ const quickLinks = [
   { path: '/checkup-schedule', icon: Stethoscope, label: '儿保体检', color: 'from-coral-400 to-coral-500', emoji: '🏥' },
   { path: '/medication', icon: Pill, label: '用药提醒', color: 'from-purple-400 to-purple-500', emoji: '💊' },
   { path: '/temperature', icon: Thermometer, label: '体温记录', color: 'from-rose-400 to-rose-500', emoji: '🌡️' },
+  { path: '/sleep', icon: Moon, label: '睡眠记录', color: 'from-indigo-400 to-purple-500', emoji: '🌙' },
   { path: '/reaction-diary', icon: Activity, label: '反应日记', color: 'from-teal-400 to-teal-500', emoji: '📝' },
   { path: '/reminders', icon: Bell, label: '提醒中心', color: 'from-amber-400 to-amber-500', emoji: '🔔' },
   { path: '/records', icon: FileText, label: '记录管理', color: 'from-blue-400 to-blue-500', emoji: '📋' },
@@ -57,6 +59,7 @@ export default function Dashboard() {
     abnormalItems,
     temperatureRecords,
     medicationReminders,
+    sleepRecords,
     refreshReminders,
     refreshMedicationDoseStatus,
     updateMedicationDoseStatus,
@@ -74,7 +77,37 @@ export default function Dashboard() {
   const currentMedicationReminders = medicationReminders.filter(
     (m) => m.childId === currentChildId && m.status === '进行中'
   );
+  const currentSleepRecords = sleepRecords.filter((r) => r.childId === currentChildId);
   const activeDiaries = currentReactionDiaries.filter((d) => d.status === '观察中');
+
+  const sleepWarning = useMemo(() => {
+    if (!child || currentSleepRecords.length < 3) return null;
+    const monthAge = calculateMonthAge(child.birthDate);
+    const ageRef = [
+      { maxMonth: 3, reference: 10 },
+      { maxMonth: 11, reference: 10 },
+      { maxMonth: 24, reference: 11 },
+      { maxMonth: 60, reference: 10 },
+      { maxMonth: 999, reference: 9 },
+    ];
+    const ref = (ageRef.find((r) => monthAge <= r.maxMonth) || ageRef[ageRef.length - 1]).reference;
+
+    const sorted = [...currentSleepRecords].sort((a, b) => a.date.localeCompare(b.date));
+    let consecutiveCount = 0;
+    let startDate = '';
+    for (let i = sorted.length - 1; i >= 0; i--) {
+      if (sorted[i].duration < ref) {
+        consecutiveCount++;
+        startDate = sorted[i].date;
+      } else {
+        break;
+      }
+    }
+    if (consecutiveCount >= 3) {
+      return { consecutiveCount, ref, startDate };
+    }
+    return null;
+  }, [child, currentSleepRecords]);
 
   useEffect(() => {
     if (!child) {
@@ -197,6 +230,37 @@ export default function Dashboard() {
               还有 {currentAbnormalItems.length - 4} 项异常，请前往提醒中心查看
             </p>
           )}
+        </div>
+      )}
+
+      {sleepWarning && (
+        <div className="card border-2 border-indigo-200 bg-gradient-to-br from-indigo-50 to-purple-50">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold text-lg text-indigo-700 flex items-center gap-2">
+              <Moon className="w-6 h-6 text-indigo-500" />
+              睡眠不足提醒
+              <span className="ml-2 text-2xl font-bold text-indigo-600">{sleepWarning.consecutiveCount}</span>
+              <span className="text-sm font-normal text-indigo-400">天连续不足</span>
+            </h3>
+            <Link to="/sleep" className="text-indigo-500 text-sm font-medium flex items-center hover:text-indigo-600">
+              查看详情 <ChevronRight className="w-4 h-4" />
+            </Link>
+          </div>
+          <div className="p-4 rounded-2xl bg-white border border-indigo-100">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-200 to-purple-300 flex items-center justify-center flex-shrink-0 animate-pulse-soft">
+                <AlertCircle className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <p className="font-medium text-slate-700">
+                  宝宝已连续 <span className="text-indigo-600 font-bold">{sleepWarning.consecutiveCount}</span> 天夜间睡眠不足 <span className="text-indigo-600 font-bold">{sleepWarning.ref}小时</span>
+                </p>
+                <p className="text-sm text-slate-500 mt-1">
+                  睡眠不足可能影响宝宝的生长发育和免疫力，建议关注作息规律、优化睡眠环境，如有疑虑请咨询医生。
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
@@ -492,7 +556,7 @@ export default function Dashboard() {
           <span className="text-2xl">🚀</span>
           快捷入口
         </h3>
-        <div className="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-9 gap-4">
+        <div className="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-10 gap-4">
           {quickLinks.map((link) => {
             const Icon = link.icon;
             return (

@@ -178,6 +178,7 @@ export interface BackupData {
   abnormalItems: AbnormalItem[];
   temperatureRecords: TemperatureRecord[];
   medicationReminders: MedicationReminder[];
+  sleepRecords: SleepRecord[];
   settings: AppSettings;
 }
 
@@ -285,6 +286,19 @@ export interface MedicationReminder {
   doses: MedicationDose[];
   notes?: string;
   status: '进行中' | '已完成' | '已取消';
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SleepRecord {
+  id: string;
+  childId: string;
+  date: string;
+  bedtime: string;
+  wakeTime: string;
+  nightWakings: number;
+  duration: number;
+  notes?: string;
   createdAt: string;
   updatedAt: string;
 }

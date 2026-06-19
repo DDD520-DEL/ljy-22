@@ -24,6 +24,7 @@ import {
   ArrowLeftRight,
   Thermometer,
   Pill,
+  Moon,
   Check,
   SkipForward,
 } from 'lucide-react';
@@ -39,6 +40,7 @@ const navItems = [
   { path: '/vaccine-certificate', icon: Shield, label: '电子接种证' },
   { path: '/checkup-schedule', icon: Stethoscope, label: '儿保体检' },
   { path: '/temperature', icon: Thermometer, label: '体温记录' },
+  { path: '/sleep', icon: Moon, label: '睡眠记录' },
   { path: '/reaction-diary', icon: Activity, label: '反应日记' },
   { path: '/medication', icon: Pill, label: '用药提醒' },
   { path: '/reminders', icon: Bell, label: '提醒中心' },
