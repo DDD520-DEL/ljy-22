@@ -179,6 +179,7 @@ export interface BackupData {
   temperatureRecords: TemperatureRecord[];
   medicationReminders: MedicationReminder[];
   sleepRecords: SleepRecord[];
+  allergyRecords: AllergyRecord[];
   settings: AppSettings;
 }
 
@@ -286,6 +287,19 @@ export interface MedicationReminder {
   doses: MedicationDose[];
   notes?: string;
   status: '进行中' | '已完成' | '已取消';
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type AllergyCategory = '食物' | '药物' | '环境';
+
+export interface AllergyRecord {
+  id: string;
+  childId: string;
+  allergenName: string;
+  category: AllergyCategory;
+  discoveryDate: string;
+  reaction: string;
   createdAt: string;
   updatedAt: string;
 }

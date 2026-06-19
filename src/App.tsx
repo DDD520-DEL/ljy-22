@@ -13,6 +13,7 @@ import VaccineCertificatePage from "@/pages/VaccineCertificate";
 import CheckupComparePage from "@/pages/CheckupCompare";
 import MedicationRemindersPage from "@/pages/MedicationReminders";
 import SleepRecordPage from "@/pages/SleepRecord";
+import AllergyRecordPage from "@/pages/AllergyRecord";
 
 export default function App() {
   return (
@@ -25,6 +26,7 @@ export default function App() {
           <Route path="checkup-schedule" element={<CheckupSchedulePage />} />
           <Route path="temperature" element={<TemperatureRecordPage />} />
           <Route path="sleep" element={<SleepRecordPage />} />
+          <Route path="allergy" element={<AllergyRecordPage />} />
           <Route path="reaction-diary" element={<ReactionDiaryPage />} />
           <Route path="reaction-diary/:id" element={<ReactionDiaryPage />} />
           <Route path="reminders" element={<RemindersPage />} />

@@ -18,6 +18,7 @@ import type {
   MedicationReminder,
   MedicationDoseStatus,
   SleepRecord,
+  AllergyRecord,
 } from '@/types';
 import {
   generateVaccineSchedules,
@@ -51,6 +52,7 @@ interface AppState {
   temperatureRecords: TemperatureRecord[];
   medicationReminders: MedicationReminder[];
   sleepRecords: SleepRecord[];
+  allergyRecords: AllergyRecord[];
   settings: AppSettings;
 
   get currentChild(): Child | null;
@@ -93,6 +95,10 @@ interface AppState {
   updateSleepRecord: (id: string, data: Partial<SleepRecord>) => void;
   deleteSleepRecord: (id: string) => void;
 
+  addAllergyRecord: (record: Omit<AllergyRecord, 'id' | 'childId' | 'createdAt' | 'updatedAt'>) => void;
+  updateAllergyRecord: (id: string, data: Partial<AllergyRecord>) => void;
+  deleteAllergyRecord: (id: string) => void;
+
   updateSettings: (settings: Partial<AppSettings>) => void;
 
   updateVaccineScheduleStatus: (scheduleId: string, status: VaccineSchedule['status']) => void;
@@ -131,6 +137,7 @@ export const useAppStore = create<AppState>()(
       temperatureRecords: [],
       medicationReminders: [],
       sleepRecords: [],
+      allergyRecords: [],
       settings: initialSettings,
 
       get currentChild() {
@@ -212,6 +219,7 @@ export const useAppStore = create<AppState>()(
           const newTemperatureRecords = state.temperatureRecords.filter((r) => r.childId !== id);
           const newMedicationReminders = state.medicationReminders.filter((m) => m.childId !== id);
           const newSleepRecords = state.sleepRecords.filter((r) => r.childId !== id);
+          const newAllergyRecords = state.allergyRecords.filter((r) => r.childId !== id);
 
           let newCurrentChildId = state.currentChildId;
           if (state.currentChildId === id) {
@@ -232,6 +240,7 @@ export const useAppStore = create<AppState>()(
             temperatureRecords: newTemperatureRecords,
             medicationReminders: newMedicationReminders,
             sleepRecords: newSleepRecords,
+            allergyRecords: newAllergyRecords,
           };
         });
       },
@@ -698,6 +707,39 @@ export const useAppStore = create<AppState>()(
         }));
       },
 
+      addAllergyRecord: (record) => {
+        const state = get();
+        if (!state.currentChildId) return;
+
+        const now = new Date().toISOString();
+        const newRecord: AllergyRecord = {
+          ...record,
+          id: generateId(),
+          childId: state.currentChildId,
+          createdAt: now,
+          updatedAt: now,
+        };
+
+        set((state) => ({
+          allergyRecords: [...state.allergyRecords, newRecord],
+        }));
+      },
+
+      updateAllergyRecord: (id, data) => {
+        const now = new Date().toISOString();
+        set((state) => ({
+          allergyRecords: state.allergyRecords.map((r) =>
+            r.id === id ? { ...r, ...data, updatedAt: now } : r
+          ),
+        }));
+      },
+
+      deleteAllergyRecord: (id) => {
+        set((state) => ({
+          allergyRecords: state.allergyRecords.filter((r) => r.id !== id),
+        }));
+      },
+
       updateSettings: (settings) => {
         const state = get();
         const newSettings = { ...state.settings, ...settings };
@@ -938,6 +980,7 @@ export const useAppStore = create<AppState>()(
           temperatureRecords: data.temperatureRecords || [],
           medicationReminders: data.medicationReminders || [],
           sleepRecords: data.sleepRecords || [],
+          allergyRecords: data.allergyRecords || [],
           settings: data.settings,
         });
         return data;
@@ -1020,6 +1063,10 @@ export const useAppStore = create<AppState>()(
 
         if (!state.sleepRecords) {
           state.sleepRecords = [];
+        }
+
+        if (!state.allergyRecords) {
+          state.allergyRecords = [];
         }
         
         return state as AppState;

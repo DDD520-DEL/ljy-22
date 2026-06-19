@@ -27,6 +27,7 @@ import {
   Moon,
   Check,
   SkipForward,
+  ShieldAlert,
 } from 'lucide-react';
 import { useAppStore } from '@/store';
 import { formatDateTime, getToday, getDaysBetween } from '@/utils/dateUtils';
@@ -41,6 +42,7 @@ const navItems = [
   { path: '/checkup-schedule', icon: Stethoscope, label: '儿保体检' },
   { path: '/temperature', icon: Thermometer, label: '体温记录' },
   { path: '/sleep', icon: Moon, label: '睡眠记录' },
+  { path: '/allergy', icon: ShieldAlert, label: '过敏原记录' },
   { path: '/reaction-diary', icon: Activity, label: '反应日记' },
   { path: '/medication', icon: Pill, label: '用药提醒' },
   { path: '/reminders', icon: Bell, label: '提醒中心' },

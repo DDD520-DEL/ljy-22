@@ -17,6 +17,9 @@ import {
   ArrowRight,
   RotateCcw,
   Sparkles,
+  Apple,
+  Pill,
+  TreePine,
 } from 'lucide-react';
 import { useAppStore } from '@/store';
 import type { VaccineSchedule as VaccineScheduleType, VaccineRecord } from '@/types';
@@ -32,6 +35,12 @@ import VaccineKnowledgeCard from '@/components/VaccineKnowledgeCard';
 type FilterType = 'all' | 'pending' | 'completed' | 'missed';
 type CategoryType = 'all' | '一类' | '二类';
 
+const ALLERGY_CATEGORY_CONFIG: Record<string, { icon: typeof Apple; color: string; bg: string; border: string }> = {
+  '食物': { icon: Apple, color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-200' },
+  '药物': { icon: Pill, color: 'text-red-600', bg: 'bg-red-50', border: 'border-red-200' },
+  '环境': { icon: TreePine, color: 'text-green-600', bg: 'bg-green-50', border: 'border-green-200' },
+};
+
 export default function VaccineSchedulePage() {
   const navigate = useNavigate();
   const {
@@ -40,6 +49,7 @@ export default function VaccineSchedulePage() {
     vaccineSchedules,
     vaccineRecords,
     reactionDiaries,
+    allergyRecords,
     addVaccineRecord,
     postponeVaccineSchedule,
   } = useAppStore();
@@ -47,6 +57,7 @@ export default function VaccineSchedulePage() {
   const child = children.find((c) => c.id === currentChildId) || null;
   const currentVaccineSchedules = vaccineSchedules.filter((s) => s.childId === currentChildId);
   const currentVaccineRecords = vaccineRecords.filter((r) => r.childId === currentChildId);
+  const currentAllergyRecords = allergyRecords.filter((r) => r.childId === currentChildId);
 
   const [filter, setFilter] = useState<FilterType>('all');
   const [category, setCategory] = useState<CategoryType>('all');
@@ -249,6 +260,37 @@ export default function VaccineSchedulePage() {
         </div>
       </div>
 
+      {currentAllergyRecords.length > 0 && (
+        <div className="card border-2 border-red-300 bg-gradient-to-br from-red-50 to-amber-50 animate-pulse-soft">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center flex-shrink-0">
+              <AlertTriangle className="w-5 h-5 text-red-600" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="font-bold text-red-700 flex items-center gap-2">
+                ⚠️ 过敏原提醒
+                <span className="text-xs font-normal text-red-500">接种前请务必告知医护</span>
+              </h3>
+              <div className="flex flex-wrap gap-2 mt-2">
+                {currentAllergyRecords.map((record) => {
+                  const config = ALLERGY_CATEGORY_CONFIG[record.category];
+                  const Icon = config?.icon || AlertTriangle;
+                  return (
+                    <span
+                      key={record.id}
+                      className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-sm font-semibold ${config?.bg || 'bg-red-50'} ${config?.border || 'border-red-200'} border ${config?.color || 'text-red-600'}`}
+                    >
+                      <Icon className="w-3.5 h-3.5" />
+                      {record.allergenName}
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="relative">
         <div className="absolute left-6 md:left-10 top-0 bottom-0 w-1 bg-gradient-to-b from-mint-200 via-coral-200 to-purple-200 rounded-full"></div>
 
@@ -361,6 +403,31 @@ export default function VaccineSchedulePage() {
                         <div className="mt-3 p-3 rounded-xl bg-amber-50 border border-amber-100 text-xs text-amber-700">
                           <strong>⚠️ 禁忌症：</strong>
                           {schedule.contraindications}
+                        </div>
+                      )}
+
+                      {currentAllergyRecords.length > 0 && (
+                        <div className="mt-3 p-3 rounded-xl bg-red-50 border-2 border-red-200 text-xs">
+                          <strong className="text-red-600 flex items-center gap-1 mb-2">
+                            <AlertTriangle className="w-3.5 h-3.5" />
+                            宝宝过敏原（医护请注意）
+                          </strong>
+                          <div className="flex flex-wrap gap-1.5">
+                            {currentAllergyRecords.map((record) => {
+                              const config = ALLERGY_CATEGORY_CONFIG[record.category];
+                              const Icon = config?.icon || AlertTriangle;
+                              return (
+                                <span
+                                  key={record.id}
+                                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${config?.bg || 'bg-red-50'} ${config?.border || 'border-red-200'} border ${config?.color || 'text-red-600'}`}
+                                  title={record.reaction}
+                                >
+                                  <Icon className="w-3 h-3" />
+                                  {record.allergenName}
+                                </span>
+                              );
+                            })}
+                          </div>
                         </div>
                       )}
 

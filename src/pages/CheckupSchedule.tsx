@@ -16,6 +16,9 @@ import {
   Heart,
   Target,
   AlertOctagon,
+  Apple,
+  Pill,
+  TreePine,
 } from 'lucide-react';
 import { useAppStore } from '@/store';
 import type { CheckupSchedule as CheckupScheduleType, CheckupRecord, CheckupItem } from '@/types';
@@ -36,6 +39,12 @@ import MilestoneAssessmentForm from '@/components/MilestoneAssessmentForm';
 
 type FilterType = 'all' | 'pending' | 'completed' | 'missed';
 
+const ALLERGY_CATEGORY_CONFIG: Record<string, { icon: typeof Apple; color: string; bg: string; border: string }> = {
+  '食物': { icon: Apple, color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-200' },
+  '药物': { icon: Pill, color: 'text-red-600', bg: 'bg-red-50', border: 'border-red-200' },
+  '环境': { icon: TreePine, color: 'text-green-600', bg: 'bg-green-50', border: 'border-green-200' },
+};
+
 export default function CheckupSchedulePage() {
   const navigate = useNavigate();
   const {
@@ -49,12 +58,14 @@ export default function CheckupSchedulePage() {
     milestoneAssessments,
     saveMilestoneAssessment,
     deleteMilestoneAssessment,
+    allergyRecords,
   } = useAppStore();
 
   const child = children.find((c) => c.id === currentChildId) || null;
   const currentCheckupSchedules = checkupSchedules.filter((s) => s.childId === currentChildId);
   const currentCheckupRecords = checkupRecords.filter((r) => r.childId === currentChildId);
   const currentMilestoneAssessments = milestoneAssessments.filter((a) => a.childId === currentChildId);
+  const currentAllergyRecords = allergyRecords.filter((r) => r.childId === currentChildId);
 
   const [filter, setFilter] = useState<FilterType>('all');
   const [selectedSchedule, setSelectedSchedule] = useState<CheckupScheduleType | null>(null);
@@ -244,6 +255,37 @@ export default function CheckupSchedulePage() {
         </div>
       </div>
 
+      {currentAllergyRecords.length > 0 && (
+        <div className="card border-2 border-red-300 bg-gradient-to-br from-red-50 to-amber-50 animate-pulse-soft">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center flex-shrink-0">
+              <AlertTriangle className="w-5 h-5 text-red-600" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="font-bold text-red-700 flex items-center gap-2">
+                ⚠️ 过敏原提醒
+                <span className="text-xs font-normal text-red-500">体检前请务必告知医护</span>
+              </h3>
+              <div className="flex flex-wrap gap-2 mt-2">
+                {currentAllergyRecords.map((record) => {
+                  const config = ALLERGY_CATEGORY_CONFIG[record.category];
+                  const Icon = config?.icon || AlertTriangle;
+                  return (
+                    <span
+                      key={record.id}
+                      className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-sm font-semibold ${config?.bg || 'bg-red-50'} ${config?.border || 'border-red-200'} border ${config?.color || 'text-red-600'}`}
+                    >
+                      <Icon className="w-3.5 h-3.5" />
+                      {record.allergenName}
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="card border-2 border-purple-100 bg-gradient-to-br from-purple-50/50 to-white overflow-hidden">
         <div
           className="flex items-center justify-between cursor-pointer"
@@ -359,6 +401,24 @@ export default function CheckupSchedulePage() {
                               ✨ {m}
                             </span>
                           ))}
+                        </div>
+                      )}
+                      {currentAllergyRecords.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mt-2">
+                          {currentAllergyRecords.map((record) => {
+                            const config = ALLERGY_CATEGORY_CONFIG[record.category];
+                            const Icon = config?.icon || AlertTriangle;
+                            return (
+                              <span
+                                key={record.id}
+                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${config?.bg || 'bg-red-50'} ${config?.border || 'border-red-200'} border ${config?.color || 'text-red-600'}`}
+                                title={record.reaction}
+                              >
+                                <Icon className="w-3 h-3" />
+                                {record.allergenName}
+                              </span>
+                            );
+                          })}
                         </div>
                       )}
                     </div>
