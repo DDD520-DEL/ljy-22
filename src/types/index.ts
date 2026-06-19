@@ -140,7 +140,7 @@ export interface MilestoneAssessment {
 export interface Reminder {
   id: string;
   childId: string;
-  type: 'vaccine' | 'checkup' | 'abnormal';
+  type: 'vaccine' | 'checkup' | 'abnormal' | 'backup';
   relatedId: string;
   title: string;
   dueDate: string;
@@ -148,6 +148,22 @@ export interface Reminder {
   status: '待提醒' | '已提醒' | '已完成';
   daysBefore: number;
   notifiedAt?: string;
+}
+
+export interface BackupData {
+  version: number;
+  exportedAt: string;
+  children: Child[];
+  currentChildId: string | null;
+  vaccineSchedules: VaccineSchedule[];
+  vaccineRecords: VaccineRecord[];
+  checkupSchedules: CheckupSchedule[];
+  checkupRecords: CheckupRecord[];
+  reminders: Reminder[];
+  reactionDiaries: VaccineReactionDiary[];
+  milestoneAssessments: MilestoneAssessment[];
+  abnormalItems: AbnormalItem[];
+  settings: AppSettings;
 }
 
 export interface AbnormalItem {
@@ -167,6 +183,7 @@ export interface AbnormalItem {
 export interface AppSettings {
   reminderDaysBefore: number;
   notificationEnabled: boolean;
+  lastBackupAt?: string;
 }
 
 export type RednessLevel = '无' | '轻微' | '中度' | '严重';

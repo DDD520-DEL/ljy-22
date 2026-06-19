@@ -19,9 +19,10 @@ import {
   BookOpen,
   Lightbulb,
   AlertTriangle,
+  HardDrive,
 } from 'lucide-react';
 import { useAppStore } from '@/store';
-import type { Reminder, AbnormalItem, VaccineSchedule } from '@/types';
+import type { Reminder, VaccineSchedule } from '@/types';
 import {
   formatDate,
   getDaysBetween,
@@ -82,7 +83,7 @@ export default function RemindersPage() {
   };
 
   const filteredReminders = reminders.filter((r) => {
-    if (babyFilter === 'current' && r.childId !== currentChildId) return false;
+    if (babyFilter === 'current' && r.childId !== currentChildId && r.type !== 'backup') return false;
     if (filter === 'pending') return r.status === '待提醒';
     if (filter === 'notified') return r.status === '已提醒';
     if (filter === 'completed') return r.status === '已完成';
@@ -139,7 +140,9 @@ export default function RemindersPage() {
     };
   };
 
-  const displayReminders = babyFilter === 'all' ? reminders : reminders.filter((r) => r.childId === currentChildId);
+  const displayReminders = babyFilter === 'all'
+    ? reminders
+    : reminders.filter((r) => r.childId === currentChildId || r.type === 'backup');
 
   const displayAbnormalItems = babyFilter === 'all'
     ? abnormalItems.filter((a) => a.status !== '已归档')
@@ -153,12 +156,12 @@ export default function RemindersPage() {
   };
 
   const handleReminderClick = (reminder: Reminder) => {
-    if (reminder.childId !== currentChildId) {
+    if (reminder.type !== 'backup' && reminder.childId !== currentChildId) {
       switchChild(reminder.childId);
     }
     if (reminder.type === 'abnormal') {
       navigate('/checkup-schedule');
-    } else {
+    } else if (reminder.type !== 'backup') {
       navigate(reminder.type === 'vaccine' ? '/vaccine-schedule' : '/checkup-schedule');
     }
   };
@@ -425,6 +428,8 @@ export default function RemindersPage() {
                         ? 'bg-gradient-to-br from-mint-200 to-mint-400'
                         : reminder.type === 'abnormal'
                         ? 'bg-gradient-to-br from-red-200 to-red-400'
+                        : reminder.type === 'backup'
+                        ? 'bg-gradient-to-br from-purple-300 to-purple-500'
                         : 'bg-gradient-to-br from-coral-200 to-coral-400'
                     } ${daysToDue <= 1 && reminder.status !== '已完成' ? 'animate-pulse-soft' : ''}`}
                   >
@@ -432,6 +437,8 @@ export default function RemindersPage() {
                       <Syringe className="w-7 h-7 text-white" />
                     ) : reminder.type === 'abnormal' ? (
                       <AlertOctagon className="w-7 h-7 text-white" />
+                    ) : reminder.type === 'backup' ? (
+                      <HardDrive className="w-7 h-7 text-white" />
                     ) : (
                       <Stethoscope className="w-7 h-7 text-white" />
                     )}
@@ -480,12 +487,18 @@ export default function RemindersPage() {
                         </p>
                         <div className="flex items-center gap-2 mt-1">
                           <p className="text-xs text-slate-400">
-                            {reminder.type === 'vaccine' ? '💉 疫苗接种' : reminder.type === 'abnormal' ? '⚠️ 异常复查' : '🏥 儿保体检'}
-                            {reminder.status === '待提醒' && (
+                            {reminder.type === 'vaccine'
+                              ? '💉 疫苗接种'
+                              : reminder.type === 'abnormal'
+                              ? '⚠️ 异常复查'
+                              : reminder.type === 'backup'
+                              ? '💾 数据备份'
+                              : '🏥 儿保体检'}
+                            {reminder.status === '待提醒' && reminder.type !== 'backup' && (
                               <> · {reminder.daysBefore}天前开始提醒</>
                             )}
                           </p>
-                          {babyFilter === 'all' && child && (
+                          {babyFilter === 'all' && child && reminder.type !== 'backup' && (
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-slate-100 text-slate-600">
                               {getGenderEmoji(child.gender)} {child.name}
                             </span>

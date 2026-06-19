@@ -13,6 +13,7 @@ import type {
   ReactionSummary,
   MilestoneAssessment,
   AbnormalItem,
+  BackupData,
 } from '@/types';
 import {
   generateVaccineSchedules,
@@ -20,7 +21,15 @@ import {
   generateReminders,
   generateId,
   addHours,
+  getToday,
+  addDays,
+  getDaysBetween,
 } from '@/utils/dateUtils';
+import {
+  createBackupData,
+  exportBackupToFile,
+  importBackupFromFile,
+} from '@/utils/backup';
 
 interface AppState {
   children: Child[];
@@ -70,6 +79,10 @@ interface AppState {
   deleteReactionLog: (diaryId: string, logId: string) => void;
   getDiaryByRecordId: (recordId: string) => VaccineReactionDiary | undefined;
   completeDiary: (diaryId: string) => void;
+
+  exportBackup: () => void;
+  importBackup: (file: File) => Promise<BackupData>;
+  refreshBackupReminder: () => void;
 }
 
 const initialSettings: AppSettings = {
@@ -373,7 +386,16 @@ export const useAppStore = create<AppState>()(
           state.children.some((c) => c.id === ar.childId)
         );
 
-        set({ reminders: [...childAbnormalReminders, ...allReminders] });
+        const backupReminderId = 'system-backup-reminder';
+        const existingBackupReminder = state.reminders.find((r) => r.relatedId === backupReminderId);
+
+        const mergedReminders = [...childAbnormalReminders, ...allReminders];
+        if (existingBackupReminder) {
+          mergedReminders.push(existingBackupReminder);
+        }
+
+        set({ reminders: mergedReminders });
+        get().refreshBackupReminder();
       },
 
       markReminderComplete: (id) => {
@@ -599,6 +621,94 @@ export const useAppStore = create<AppState>()(
               : d
           ),
         }));
+      },
+
+      exportBackup: () => {
+        const state = get();
+        const backupData = createBackupData(state);
+        exportBackupToFile(backupData);
+        const now = new Date().toISOString();
+        set((prevState) => ({
+          settings: { ...prevState.settings, lastBackupAt: now },
+        }));
+        get().refreshBackupReminder();
+      },
+
+      importBackup: async (file: File) => {
+        const data = await importBackupFromFile(file);
+        set({
+          children: data.children,
+          currentChildId: data.currentChildId,
+          vaccineSchedules: data.vaccineSchedules,
+          vaccineRecords: data.vaccineRecords,
+          checkupSchedules: data.checkupSchedules,
+          checkupRecords: data.checkupRecords,
+          reminders: data.reminders,
+          reactionDiaries: data.reactionDiaries,
+          milestoneAssessments: data.milestoneAssessments,
+          abnormalItems: data.abnormalItems,
+          settings: data.settings,
+        });
+        return data;
+      },
+
+      refreshBackupReminder: () => {
+        const state = get();
+        const today = getToday();
+        const lastBackupAt = state.settings.lastBackupAt;
+        const backupReminderId = 'system-backup-reminder';
+        const BACKUP_INTERVAL_DAYS = 30;
+
+        const otherReminders = state.reminders.filter((r) => r.relatedId !== backupReminderId);
+
+        if (state.children.length === 0) {
+          set({ reminders: otherReminders });
+          return;
+        }
+
+        const firstChildId = state.children[0]?.id;
+        if (!firstChildId) {
+          set({ reminders: otherReminders });
+          return;
+        }
+
+        let shouldShowReminder = false;
+        let dueDate = today;
+
+        if (!lastBackupAt) {
+          shouldShowReminder = true;
+          dueDate = today;
+        } else {
+          const lastBackupDate = lastBackupAt.split('T')[0];
+          const diffDays = getDaysBetween(lastBackupDate, today);
+          if (diffDays >= BACKUP_INTERVAL_DAYS) {
+            shouldShowReminder = true;
+            dueDate = addDays(lastBackupDate, BACKUP_INTERVAL_DAYS);
+          }
+        }
+
+        if (shouldShowReminder) {
+          const existingReminder = state.reminders.find((r) => r.relatedId === backupReminderId);
+          if (existingReminder && existingReminder.status === '已完成') {
+            set({ reminders: otherReminders });
+            return;
+          }
+
+          const backupReminder: Reminder = {
+            id: existingReminder?.id || generateId(),
+            childId: firstChildId,
+            type: 'backup',
+            relatedId: backupReminderId,
+            title: '数据备份提醒',
+            dueDate,
+            remindDate: dueDate,
+            status: '已提醒',
+            daysBefore: 0,
+          };
+          set({ reminders: [...otherReminders, backupReminder] });
+        } else {
+          set({ reminders: otherReminders });
+        }
       },
     }),
     {

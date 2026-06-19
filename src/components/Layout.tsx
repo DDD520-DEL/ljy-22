@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import {
   Home,
@@ -15,8 +15,17 @@ import {
   UserPlus,
   Activity,
   Shield,
+  Download,
+  Upload,
+  HardDrive,
+  AlertTriangle,
+  CheckCircle2,
+  Settings,
 } from 'lucide-react';
 import { useAppStore } from '@/store';
+import { formatDateTime, getToday, getDaysBetween } from '@/utils/dateUtils';
+import { getBackupSummary } from '@/utils/backup';
+import type { BackupData } from '@/types';
 
 const navItems = [
   { path: '/', icon: Home, label: '首页概览' },
@@ -32,9 +41,27 @@ const navItems = [
 
 export default function Layout() {
   const navigate = useNavigate();
-  const { children, currentChildId, switchChild, deleteChild, reminders, reactionDiaries } = useAppStore();
+  const {
+    children,
+    currentChildId,
+    switchChild,
+    deleteChild,
+    reminders,
+    reactionDiaries,
+    settings,
+    exportBackup,
+    importBackup,
+    refreshBackupReminder,
+    updateSettings,
+  } = useAppStore();
   const [showChildList, setShowChildList] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [tempDays, setTempDays] = useState(settings.reminderDaysBefore);
+  const [notificationGranted, setNotificationGranted] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<{ data: BackupData; success: true } | { error: string; success: false } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const currentChild = children.find((c) => c.id === currentChildId) || null;
   const pendingReminders = reminders.filter((r) => r.status !== '已完成').length;
@@ -64,6 +91,49 @@ export default function Layout() {
 
   const getGenderEmoji = (gender: '男' | '女') => {
     return gender === '男' ? '👦' : '👧';
+  };
+
+  const today = getToday();
+  const lastBackupAt = settings.lastBackupAt;
+  const daysSinceBackup = lastBackupAt
+    ? getDaysBetween(lastBackupAt.split('T')[0], today)
+    : null;
+  const backupOverdue = daysSinceBackup === null || daysSinceBackup >= 30;
+
+  const handleExportBackup = () => {
+    exportBackup();
+    refreshBackupReminder();
+  };
+
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setImporting(true);
+    setImportResult(null);
+
+    try {
+      const data = await importBackup(file);
+      setImportResult({ data, success: true });
+      refreshBackupReminder();
+    } catch (err) {
+      setImportResult({ error: (err as Error).message, success: false });
+    } finally {
+      setImporting(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const requestNotificationPermission = async () => {
+    if ('Notification' in window && Notification.permission !== 'granted') {
+      const result = await Notification.requestPermission();
+      setNotificationGranted(result === 'granted');
+      updateSettings({ notificationEnabled: result === 'granted' });
+    }
   };
 
   return (
@@ -187,7 +257,82 @@ export default function Layout() {
           })}
         </nav>
 
-        <div className="p-4 border-t border-mint-50">
+        <div className="p-4 border-t border-mint-50 space-y-2">
+          {children.length > 0 && (
+            <div
+              className={`p-3 rounded-xl mb-2 cursor-pointer transition-all ${
+                backupOverdue
+                  ? 'bg-amber-50 border border-amber-200 hover:bg-amber-100'
+                  : 'bg-mint-50 border border-mint-200 hover:bg-mint-100'
+              }`}
+              onClick={() => {
+                setTempDays(settings.reminderDaysBefore);
+                if ('Notification' in window) {
+                  setNotificationGranted(Notification.permission === 'granted');
+                }
+                setImportResult(null);
+                setShowSettingsModal(true);
+              }}
+            >
+              <div className="flex items-center gap-2 mb-1">
+                <HardDrive
+                  className={`w-4 h-4 flex-shrink-0 ${
+                    backupOverdue ? 'text-amber-600' : 'text-mint-600'
+                  }`}
+                />
+                <span
+                  className={`text-xs font-semibold ${
+                    backupOverdue ? 'text-amber-700' : 'text-mint-700'
+                  }`}
+                >
+                  数据备份
+                </span>
+                {backupOverdue && (
+                  <AlertTriangle className="w-3.5 h-3.5 text-amber-500 ml-auto" />
+                )}
+                {!backupOverdue && (
+                  <CheckCircle2 className="w-3.5 h-3.5 text-mint-500 ml-auto" />
+                )}
+              </div>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                {lastBackupAt ? (
+                  <>
+                    上次备份：
+                    <br />
+                    <span className="font-medium text-slate-700">
+                      {formatDateTime(lastBackupAt)}
+                    </span>
+                    {backupOverdue && (
+                      <>
+                        <br />
+                        <span className="text-amber-600 font-medium">
+                          已超过 {daysSinceBackup} 天未备份
+                        </span>
+                      </>
+                    )}
+                  </>
+                ) : (
+                  <span className="text-amber-600 font-medium">尚未备份，建议立即备份</span>
+                )}
+              </p>
+            </div>
+          )}
+
+          <button
+            onClick={() => {
+              setTempDays(settings.reminderDaysBefore);
+              if ('Notification' in window) {
+                setNotificationGranted(Notification.permission === 'granted');
+              }
+              setImportResult(null);
+              setShowSettingsModal(true);
+            }}
+            className="sidebar-link w-full"
+          >
+            <Settings className="w-5 h-5" />
+            <span>设置与备份</span>
+          </button>
+
           <button
             onClick={handleClearData}
             className="sidebar-link w-full text-slate-400 hover:text-red-500 hover:bg-red-50"
@@ -204,6 +349,14 @@ export default function Layout() {
         </div>
       </main>
 
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".json,application/json"
+        className="hidden"
+        onChange={handleFileChange}
+      />
+
       {showAddModal && (
         <AddChildModal
           onClose={() => setShowAddModal(false)}
@@ -215,6 +368,24 @@ export default function Layout() {
         <div
           className="fixed inset-0 z-40"
           onClick={() => setShowChildList(false)}
+        />
+      )}
+
+      {showSettingsModal && (
+        <SettingsModal
+          onClose={() => setShowSettingsModal(false)}
+          tempDays={tempDays}
+          setTempDays={setTempDays}
+          notificationGranted={notificationGranted}
+          requestNotificationPermission={requestNotificationPermission}
+          lastBackupAt={lastBackupAt}
+          daysSinceBackup={daysSinceBackup}
+          backupOverdue={backupOverdue}
+          onExportBackup={handleExportBackup}
+          onImportClick={handleImportClick}
+          importing={importing}
+          importResult={importResult}
+          updateSettings={updateSettings}
         />
       )}
     </div>
@@ -345,6 +516,230 @@ function AddChildModal({ onClose, onSuccess }: { onClose: () => void; onSuccess:
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  );
+}
+
+interface SettingsModalProps {
+  onClose: () => void;
+  tempDays: number;
+  setTempDays: (n: number) => void;
+  notificationGranted: boolean;
+  requestNotificationPermission: () => Promise<void>;
+  lastBackupAt?: string;
+  daysSinceBackup: number | null;
+  backupOverdue: boolean;
+  onExportBackup: () => void;
+  onImportClick: () => void;
+  importing: boolean;
+  importResult: { data: BackupData; success: true } | { error: string; success: false } | null;
+  updateSettings: (settings: Partial<import('@/types').AppSettings>) => void;
+}
+
+function SettingsModal(props: SettingsModalProps) {
+  const {
+    onClose,
+    tempDays,
+    setTempDays,
+    notificationGranted,
+    requestNotificationPermission,
+    lastBackupAt,
+    daysSinceBackup,
+    backupOverdue,
+    onExportBackup,
+    onImportClick,
+    importing,
+    importResult,
+    updateSettings,
+  } = props;
+
+  return (
+    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+      <div className="bg-white rounded-3xl shadow-soft-lg max-w-lg w-full overflow-hidden max-h-[90vh] overflow-y-auto">
+        <div className="bg-gradient-to-r from-mint-400 to-coral-400 p-6 text-white">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center">
+                <Settings className="w-6 h-6" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-display">设置与备份</h2>
+                <p className="text-white/80 text-sm">提醒设置、数据备份与恢复</p>
+              </div>
+            </div>
+            <button
+              onClick={onClose}
+              className="w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        <div className="p-6 space-y-6">
+          <div>
+            <label className="label-field">提前提醒天数</label>
+            <div className="flex items-center gap-4">
+              <input
+                type="range"
+                min="1"
+                max="7"
+                value={tempDays}
+                onChange={(e) => setTempDays(parseInt(e.target.value))}
+                className="flex-1 h-2 bg-slate-200 rounded-full appearance-none cursor-pointer accent-mint-400"
+              />
+              <div className="w-20 h-12 rounded-xl bg-gradient-to-br from-mint-100 to-coral-100 flex items-center justify-center font-bold text-xl text-slate-700">
+                {tempDays}天
+              </div>
+            </div>
+            <p className="text-xs text-slate-400 mt-2">
+              系统会在到期日前 {tempDays} 天开始提醒您（推荐设置3天）
+            </p>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-blue-50 border border-blue-100">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0">
+                <Bell className="w-5 h-5 text-blue-500" />
+              </div>
+              <div className="text-sm flex-1">
+                <p className="font-medium text-blue-700">浏览器桌面通知</p>
+                <p className="text-blue-600 mt-1">
+                  当前状态：
+                  {notificationGranted ? (
+                    <span className="font-bold text-mint-600">已开启 ✅</span>
+                  ) : (
+                    <span className="font-bold text-amber-600">未开启</span>
+                  )}
+                </p>
+                {!notificationGranted && (
+                  <button
+                    onClick={requestNotificationPermission}
+                    className="mt-2 text-blue-600 hover:text-blue-700 underline underline-offset-2"
+                  >
+                    点击开启通知权限
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="border-t border-slate-100 pt-6">
+            <h3 className="font-display text-xl text-slate-800 mb-4 flex items-center gap-2">
+              <HardDrive className="w-5 h-5 text-slate-500" />
+              数据备份与恢复
+            </h3>
+            <p className="text-sm text-slate-500 mb-4">
+              所有数据保存在您的浏览器本地，建议定期导出备份以防数据丢失。
+              超过 30 天未备份系统将自动提醒您。
+            </p>
+
+            <div
+              className={`p-4 rounded-2xl mb-4 ${
+                backupOverdue
+                  ? 'bg-amber-50 border-2 border-amber-200'
+                  : 'bg-mint-50 border-2 border-mint-200'
+              }`}
+            >
+              <div className="flex items-center gap-2 mb-2">
+                {backupOverdue ? (
+                  <AlertTriangle className="w-5 h-5 text-amber-600" />
+                ) : (
+                  <CheckCircle2 className="w-5 h-5 text-mint-600" />
+                )}
+                <span
+                  className={`font-semibold ${
+                    backupOverdue ? 'text-amber-700' : 'text-mint-700'
+                  }`}
+                >
+                  {lastBackupAt ? '上次备份状态' : '尚未备份'}
+                </span>
+              </div>
+              {lastBackupAt ? (
+                <>
+                  <p className="text-sm text-slate-700">
+                    备份时间：<span className="font-medium">{formatDateTime(lastBackupAt)}</span>
+                  </p>
+                  <p className="text-sm text-slate-600 mt-1">
+                    距今：<span className="font-medium">{daysSinceBackup} 天</span>
+                    {backupOverdue && (
+                      <span className="text-amber-600 font-medium ml-2">（已超过30天建议立即备份）</span>
+                    )}
+                  </p>
+                </>
+              ) : (
+                <p className="text-sm text-amber-600 font-medium">
+                  还没有备份过，点击下方按钮立即备份您的数据
+                </p>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={onExportBackup}
+                className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gradient-to-r from-mint-400 to-mint-500 text-white font-medium shadow-soft hover:shadow-lg transition-all"
+              >
+                <Download className="w-5 h-5" />
+                导出备份
+              </button>
+              <button
+                onClick={onImportClick}
+                disabled={importing}
+                className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gradient-to-r from-coral-400 to-coral-500 text-white font-medium shadow-soft hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Upload className="w-5 h-5" />
+                {importing ? '导入中...' : '恢复备份'}
+              </button>
+            </div>
+
+            {importResult && (
+              <div
+                className={`mt-4 p-4 rounded-2xl ${
+                  importResult.success
+                    ? 'bg-mint-50 border border-mint-200'
+                    : 'bg-red-50 border border-red-200'
+                }`}
+              >
+                {'data' in importResult ? (
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <CheckCircle2 className="w-5 h-5 text-mint-600" />
+                      <span className="font-semibold text-mint-700">数据恢复成功！</span>
+                    </div>
+                    <pre className="text-xs text-slate-600 whitespace-pre-wrap bg-white/60 p-3 rounded-lg">
+                      {getBackupSummary(importResult.data)}
+                    </pre>
+                  </div>
+                ) : (
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-semibold text-red-700">恢复失败</p>
+                      <p className="text-sm text-red-600 mt-1">{importResult.error}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="flex gap-3 pt-2 border-t border-slate-100">
+            <button onClick={onClose} className="flex-1 btn-outline">
+              关闭
+            </button>
+            <button
+              onClick={() => {
+                updateSettings({ reminderDaysBefore: tempDays });
+                onClose();
+              }}
+              className="flex-1 btn-primary flex items-center justify-center gap-2"
+            >
+              <CheckCircle2 className="w-5 h-5" />
+              保存设置
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
