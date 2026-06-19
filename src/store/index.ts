@@ -20,6 +20,7 @@ import type {
   SleepRecord,
   AllergyRecord,
   MilestoneEvent,
+  ExpenseRecord,
 } from '@/types';
 import {
   generateVaccineSchedules,
@@ -55,6 +56,7 @@ interface AppState {
   sleepRecords: SleepRecord[];
   allergyRecords: AllergyRecord[];
   milestoneEvents: MilestoneEvent[];
+  expenseRecords: ExpenseRecord[];
   settings: AppSettings;
 
   get currentChild(): Child | null;
@@ -105,6 +107,10 @@ interface AppState {
   updateMilestoneEvent: (id: string, data: Partial<MilestoneEvent>) => void;
   deleteMilestoneEvent: (id: string) => void;
 
+  addExpenseRecord: (record: Omit<ExpenseRecord, 'id' | 'childId' | 'createdAt' | 'updatedAt'>) => void;
+  updateExpenseRecord: (id: string, data: Partial<ExpenseRecord>) => void;
+  deleteExpenseRecord: (id: string) => void;
+
   updateSettings: (settings: Partial<AppSettings>) => void;
 
   updateVaccineScheduleStatus: (scheduleId: string, status: VaccineSchedule['status']) => void;
@@ -145,6 +151,7 @@ export const useAppStore = create<AppState>()(
       sleepRecords: [],
       allergyRecords: [],
       milestoneEvents: [],
+      expenseRecords: [],
       settings: initialSettings,
 
       get currentChild() {
@@ -228,6 +235,7 @@ export const useAppStore = create<AppState>()(
           const newSleepRecords = state.sleepRecords.filter((r) => r.childId !== id);
           const newAllergyRecords = state.allergyRecords.filter((r) => r.childId !== id);
           const newMilestoneEvents = state.milestoneEvents.filter((e) => e.childId !== id);
+          const newExpenseRecords = state.expenseRecords.filter((r) => r.childId !== id);
 
           let newCurrentChildId = state.currentChildId;
           if (state.currentChildId === id) {
@@ -250,6 +258,7 @@ export const useAppStore = create<AppState>()(
             sleepRecords: newSleepRecords,
             allergyRecords: newAllergyRecords,
             milestoneEvents: newMilestoneEvents,
+            expenseRecords: newExpenseRecords,
           };
         });
       },
@@ -782,6 +791,39 @@ export const useAppStore = create<AppState>()(
         }));
       },
 
+      addExpenseRecord: (record) => {
+        const state = get();
+        if (!state.currentChildId) return;
+
+        const now = new Date().toISOString();
+        const newRecord: ExpenseRecord = {
+          ...record,
+          id: generateId(),
+          childId: state.currentChildId,
+          createdAt: now,
+          updatedAt: now,
+        };
+
+        set((state) => ({
+          expenseRecords: [...state.expenseRecords, newRecord],
+        }));
+      },
+
+      updateExpenseRecord: (id, data) => {
+        const now = new Date().toISOString();
+        set((state) => ({
+          expenseRecords: state.expenseRecords.map((r) =>
+            r.id === id ? { ...r, ...data, updatedAt: now } : r
+          ),
+        }));
+      },
+
+      deleteExpenseRecord: (id) => {
+        set((state) => ({
+          expenseRecords: state.expenseRecords.filter((r) => r.id !== id),
+        }));
+      },
+
       updateSettings: (settings) => {
         const state = get();
         const newSettings = { ...state.settings, ...settings };
@@ -1024,6 +1066,7 @@ export const useAppStore = create<AppState>()(
           sleepRecords: data.sleepRecords || [],
           allergyRecords: data.allergyRecords || [],
           milestoneEvents: data.milestoneEvents || [],
+          expenseRecords: (data as unknown as { expenseRecords?: ExpenseRecord[] }).expenseRecords || [],
           settings: data.settings,
         });
         return data;
@@ -1114,6 +1157,10 @@ export const useAppStore = create<AppState>()(
 
         if (!state.milestoneEvents) {
           state.milestoneEvents = [];
+        }
+
+        if (!state.expenseRecords) {
+          state.expenseRecords = [];
         }
         
         return state as AppState;

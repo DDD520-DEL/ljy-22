@@ -341,3 +341,88 @@ export function isFever(temperature: number, site: TemperatureSite): boolean {
   };
   return temperature >= thresholds[site];
 }
+
+export type ExpenseCategory =
+  | '疫苗费用'
+  | '体检费用'
+  | '奶粉辅食'
+  | '纸尿裤'
+  | '衣物玩具'
+  | '医疗药品'
+  | '教育娱乐'
+  | '其他';
+
+export const EXPENSE_CATEGORIES: ExpenseCategory[] = [
+  '疫苗费用',
+  '体检费用',
+  '奶粉辅食',
+  '纸尿裤',
+  '衣物玩具',
+  '医疗药品',
+  '教育娱乐',
+  '其他',
+];
+
+export const EXPENSE_CATEGORY_COLORS: Record<ExpenseCategory, string> = {
+  '疫苗费用': '#4ADE80',
+  '体检费用': '#FB7185',
+  '奶粉辅食': '#FBBF24',
+  '纸尿裤': '#60A5FA',
+  '衣物玩具': '#A78BFA',
+  '医疗药品': '#F472B6',
+  '教育娱乐': '#2DD4BF',
+  '其他': '#94A3B8',
+};
+
+export const EXPENSE_CATEGORY_ICONS: Record<ExpenseCategory, string> = {
+  '疫苗费用': '💉',
+  '体检费用': '🏥',
+  '奶粉辅食': '🍼',
+  '纸尿裤': '🧷',
+  '衣物玩具': '🧸',
+  '医疗药品': '💊',
+  '教育娱乐': '📚',
+  '其他': '📦',
+};
+
+export interface ExpenseRecord {
+  id: string;
+  childId: string;
+  category: ExpenseCategory;
+  amount: number;
+  description: string;
+  expenseDate: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MonthlyExpenseSummary {
+  category: ExpenseCategory;
+  amount: number;
+  percentage: number;
+  color: string;
+  icon: string;
+}
+
+export interface BackupData {
+  version: number;
+  exportedAt: string;
+  children: Child[];
+  currentChildId: string | null;
+  vaccineSchedules: VaccineSchedule[];
+  vaccineRecords: VaccineRecord[];
+  checkupSchedules: CheckupSchedule[];
+  checkupRecords: CheckupRecord[];
+  reminders: Reminder[];
+  reactionDiaries: VaccineReactionDiary[];
+  milestoneAssessments: MilestoneAssessment[];
+  abnormalItems: AbnormalItem[];
+  temperatureRecords: TemperatureRecord[];
+  medicationReminders: MedicationReminder[];
+  sleepRecords: SleepRecord[];
+  allergyRecords: AllergyRecord[];
+  milestoneEvents: MilestoneEvent[];
+  expenseRecords: ExpenseRecord[];
+  settings: AppSettings;
+}

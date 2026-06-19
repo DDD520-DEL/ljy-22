@@ -19,6 +19,7 @@ import {
   Moon,
   Check,
   SkipForward,
+  Wallet,
 } from 'lucide-react';
 import { useAppStore } from '@/store';
 import {
@@ -40,6 +41,7 @@ const quickLinks = [
   { path: '/temperature', icon: Thermometer, label: '体温记录', color: 'from-rose-400 to-rose-500', emoji: '🌡️' },
   { path: '/sleep', icon: Moon, label: '睡眠记录', color: 'from-indigo-400 to-purple-500', emoji: '🌙' },
   { path: '/reaction-diary', icon: Activity, label: '反应日记', color: 'from-teal-400 to-teal-500', emoji: '📝' },
+  { path: '/expense', icon: Wallet, label: '费用记账', color: 'from-amber-400 to-orange-500', emoji: '💰' },
   { path: '/reminders', icon: Bell, label: '提醒中心', color: 'from-amber-400 to-amber-500', emoji: '🔔' },
   { path: '/records', icon: FileText, label: '记录管理', color: 'from-blue-400 to-blue-500', emoji: '📋' },
   { path: '/export', icon: Printer, label: '导出打印', color: 'from-indigo-400 to-indigo-500', emoji: '🖨️' },
@@ -60,6 +62,7 @@ export default function Dashboard() {
     temperatureRecords,
     medicationReminders,
     sleepRecords,
+    expenseRecords,
     refreshReminders,
     refreshMedicationDoseStatus,
     updateMedicationDoseStatus,
@@ -78,7 +81,16 @@ export default function Dashboard() {
     (m) => m.childId === currentChildId && m.status === '进行中'
   );
   const currentSleepRecords = sleepRecords.filter((r) => r.childId === currentChildId);
+  const currentExpenseRecords = expenseRecords.filter((r) => r.childId === currentChildId);
   const activeDiaries = currentReactionDiaries.filter((d) => d.status === '观察中');
+
+  const currentMonthExpense = useMemo(() => {
+    const today = new Date();
+    const currentMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+    return currentExpenseRecords
+      .filter((r) => r.expenseDate.startsWith(currentMonth))
+      .reduce((sum, r) => sum + r.amount, 0);
+  }, [currentExpenseRecords]);
 
   const sleepWarning = useMemo(() => {
     if (!child || currentSleepRecords.length < 3) return null;
@@ -346,7 +358,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="card card-hover">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold text-lg text-slate-800 flex items-center gap-2">
@@ -404,6 +416,35 @@ export default function Dashboard() {
         </div>
 
         <TemperatureCard records={currentTemperatureRecords} />
+
+        <div className="card card-hover bg-gradient-to-br from-amber-50 to-yellow-50">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold text-lg text-slate-800 flex items-center gap-2">
+              <span className="text-2xl">💰</span>
+              本月育儿支出
+            </h3>
+            <Link to="/expense" className="text-amber-500 text-sm font-medium flex items-center hover:text-amber-600">
+              记账 <ChevronRight className="w-4 h-4" />
+            </Link>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-400 to-yellow-400 flex items-center justify-center shadow-soft">
+              <Wallet className="w-7 h-7 text-white" />
+            </div>
+            <div>
+              <p className="text-3xl font-bold text-amber-700">
+                ¥{currentMonthExpense.toFixed(2)}
+              </p>
+              <p className="text-xs text-amber-600 mt-1">
+                已记录 {currentExpenseRecords.filter((r) => {
+                  const today = new Date();
+                  const currentMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+                  return r.expenseDate.startsWith(currentMonth);
+                }).length} 笔支出
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div className="card">
