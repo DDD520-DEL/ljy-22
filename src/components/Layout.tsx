@@ -32,6 +32,8 @@ import {
   Wallet,
   BarChart3,
   Search,
+  BookOpen,
+  Heart,
 } from 'lucide-react';
 import { useAppStore } from '@/store';
 import { formatDateTime, getToday, getDaysBetween } from '@/utils/dateUtils';
@@ -51,6 +53,8 @@ const navItems = [
   { path: '/expense', icon: Wallet, label: '费用记账' },
   { path: '/reaction-diary', icon: Activity, label: '反应日记' },
   { path: '/medication', icon: Pill, label: '用药提醒' },
+  { path: '/parenting', icon: BookOpen, label: '育儿百科' },
+  { path: '/favorites', icon: Heart, label: '我的收藏' },
   { path: '/reminders', icon: Bell, label: '提醒中心' },
   { path: '/records', icon: FileText, label: '记录管理' },
   { path: '/checkup-compare', icon: ArrowLeftRight, label: '体检对比' },
@@ -70,6 +74,7 @@ export default function Layout() {
     reactionDiaries,
     medicationReminders,
     settings,
+    favoriteArticles,
     exportBackup,
     importBackup,
     refreshBackupReminder,
@@ -323,6 +328,7 @@ export default function Layout() {
             const showBadge = item.path === '/reminders' && pendingReminders > 0;
             const showDiaryBadge = item.path === '/reaction-diary' && activeDiaries > 0;
             const showMedicationBadge = item.path === '/medication' && pendingMedications > 0;
+            const showFavoritesBadge = item.path === '/favorites' && favoriteArticles.length > 0;
             return (
               <NavLink
                 key={item.path}
@@ -347,6 +353,11 @@ export default function Layout() {
                 {showMedicationBadge && (
                   <span className="min-w-5 h-5 px-1.5 bg-purple-500 text-white text-xs rounded-full flex items-center justify-center font-medium animate-pulse-soft">
                     {pendingMedications}
+                  </span>
+                )}
+                {showFavoritesBadge && (
+                  <span className="min-w-5 h-5 px-1.5 bg-rose-500 text-white text-xs rounded-full flex items-center justify-center font-medium">
+                    {favoriteArticles.length}
                   </span>
                 )}
               </NavLink>

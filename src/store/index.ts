@@ -22,6 +22,7 @@ import type {
   MilestoneEvent,
   ExpenseRecord,
   GrowthCalculatorRecord,
+  ParentingArticle,
 } from '@/types';
 import {
   generateVaccineSchedules,
@@ -60,8 +61,15 @@ interface AppState {
   expenseRecords: ExpenseRecord[];
   growthCalculatorRecords: GrowthCalculatorRecord[];
   settings: AppSettings;
+  favoriteArticles: string[];
+  readArticles: string[];
 
   get currentChild(): Child | null;
+  toggleFavoriteArticle: (articleId: string) => void;
+  isArticleFavorite: (articleId: string) => boolean;
+  markArticleAsRead: (articleId: string) => void;
+  isArticleRead: (articleId: string) => boolean;
+  getRandomUnreadArticle: (articles: ParentingArticle[]) => ParentingArticle | null;
 
   addChild: (child: Omit<Child, 'id' | 'createdAt' | 'updatedAt'>) => void;
   updateChild: (id: string, data: Partial<Child>) => void;
@@ -159,6 +167,8 @@ export const useAppStore = create<AppState>()(
       expenseRecords: [],
       growthCalculatorRecords: [],
       settings: initialSettings,
+      favoriteArticles: [],
+      readArticles: [],
 
       get currentChild() {
         const state = get();
@@ -1067,6 +1077,40 @@ export const useAppStore = create<AppState>()(
         }));
       },
 
+      toggleFavoriteArticle: (articleId) => {
+        set((state) => {
+          const isFav = state.favoriteArticles.includes(articleId);
+          return {
+            favoriteArticles: isFav
+              ? state.favoriteArticles.filter((id) => id !== articleId)
+              : [...state.favoriteArticles, articleId],
+          };
+        });
+      },
+
+      isArticleFavorite: (articleId) => {
+        return get().favoriteArticles.includes(articleId);
+      },
+
+      markArticleAsRead: (articleId) => {
+        set((state) => {
+          if (state.readArticles.includes(articleId)) return state;
+          return { readArticles: [...state.readArticles, articleId] };
+        });
+      },
+
+      isArticleRead: (articleId) => {
+        return get().readArticles.includes(articleId);
+      },
+
+      getRandomUnreadArticle: (articles) => {
+        const state = get();
+        const unread = articles.filter((a) => !state.readArticles.includes(a.id));
+        if (unread.length === 0) return null;
+        const randomIndex = Math.floor(Math.random() * unread.length);
+        return unread[randomIndex];
+      },
+
       exportBackup: () => {
         const state = get();
         const backupData = createBackupData(state);
@@ -1098,6 +1142,8 @@ export const useAppStore = create<AppState>()(
           milestoneEvents: data.milestoneEvents || [],
           expenseRecords: (data as unknown as { expenseRecords?: ExpenseRecord[] }).expenseRecords || [],
           growthCalculatorRecords: (data as unknown as { growthCalculatorRecords?: GrowthCalculatorRecord[] }).growthCalculatorRecords || [],
+          favoriteArticles: (data as unknown as { favoriteArticles?: string[] }).favoriteArticles || [],
+          readArticles: (data as unknown as { readArticles?: string[] }).readArticles || [],
           settings: data.settings,
         });
         return data;
@@ -1196,6 +1242,14 @@ export const useAppStore = create<AppState>()(
 
         if (!state.growthCalculatorRecords) {
           state.growthCalculatorRecords = [];
+        }
+
+        if (!state.favoriteArticles) {
+          state.favoriteArticles = [];
+        }
+
+        if (!state.readArticles) {
+          state.readArticles = [];
         }
         
         return state as AppState;

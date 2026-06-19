@@ -442,3 +442,46 @@ export interface BackupData {
   growthCalculatorRecords: GrowthCalculatorRecord[];
   settings: AppSettings;
 }
+
+export type AgeGroup = 'newborn' | '0-3months' | '4-6months' | '7-12months' | '1-2years' | '2-3years' | '3-6years';
+export type ArticleTopic = '喂养' | '护理' | '发育' | '疾病' | '睡眠' | '安全' | '早教' | '心理';
+
+export interface RelatedCheckup {
+  monthAge: number;
+  title: string;
+  keyItems: string[];
+}
+
+export interface RelatedVaccine {
+  vaccineCode: string;
+  vaccineName: string;
+  shortName: string;
+  monthAge: number;
+  category: '一类' | '二类';
+}
+
+export interface ParentingArticle {
+  id: string;
+  title: string;
+  summary: string;
+  content: string;
+  coverEmoji: string;
+  readTime: number;
+  ageGroups: AgeGroup[];
+  topics: ArticleTopic[];
+  tags: string[];
+  relatedCheckups: RelatedCheckup[];
+  relatedVaccines: RelatedVaccine[];
+}
+
+export const AGE_GROUP_LABELS: Record<AgeGroup, string> = {
+  newborn: '新生儿',
+  '0-3months': '0-3月',
+  '4-6months': '4-6月',
+  '7-12months': '7-12月',
+  '1-2years': '1-2岁',
+  '2-3years': '2-3岁',
+  '3-6years': '3-6岁',
+};
+
+export const ALL_TOPICS: ArticleTopic[] = ['喂养', '护理', '发育', '疾病', '睡眠', '安全', '早教', '心理'];

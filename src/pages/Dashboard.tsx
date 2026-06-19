@@ -20,8 +20,12 @@ import {
   Check,
   SkipForward,
   Wallet,
+  BookOpen,
+  Heart,
+  Sparkles,
 } from 'lucide-react';
 import { useAppStore } from '@/store';
+import { PARENTING_ARTICLES } from '@/data/parentingArticles';
 import {
   formatDate,
   calculateMonthAge,
@@ -37,6 +41,8 @@ const quickLinks = [
   { path: '/vaccine-schedule', icon: Syringe, label: '疫苗接种', color: 'from-mint-400 to-mint-500', emoji: '💉' },
   { path: '/vaccine-certificate', icon: Shield, label: '电子接种证', color: 'from-emerald-400 to-emerald-500', emoji: '📘' },
   { path: '/checkup-schedule', icon: Stethoscope, label: '儿保体检', color: 'from-coral-400 to-coral-500', emoji: '🏥' },
+  { path: '/parenting', icon: BookOpen, label: '育儿百科', color: 'from-violet-500 to-purple-600', emoji: '📚' },
+  { path: '/favorites', icon: Heart, label: '我的收藏', color: 'from-rose-400 to-pink-500', emoji: '💖' },
   { path: '/medication', icon: Pill, label: '用药提醒', color: 'from-purple-400 to-purple-500', emoji: '💊' },
   { path: '/temperature', icon: Thermometer, label: '体温记录', color: 'from-rose-400 to-rose-500', emoji: '🌡️' },
   { path: '/sleep', icon: Moon, label: '睡眠记录', color: 'from-indigo-400 to-purple-500', emoji: '🌙' },
@@ -63,10 +69,17 @@ export default function Dashboard() {
     medicationReminders,
     sleepRecords,
     expenseRecords,
+    favoriteArticles,
+    readArticles,
     refreshReminders,
     refreshMedicationDoseStatus,
     updateMedicationDoseStatus,
+    getRandomUnreadArticle,
   } = useAppStore();
+
+  const recommendedArticle = useMemo(() => {
+    return getRandomUnreadArticle(PARENTING_ARTICLES);
+  }, [getRandomUnreadArticle, readArticles]);
 
   const child = children.find((c) => c.id === currentChildId) || null;
   const currentVaccineSchedules = vaccineSchedules.filter((s) => s.childId === currentChildId);
@@ -484,6 +497,82 @@ export default function Dashboard() {
           />
         </div>
       </div>
+
+      {recommendedArticle && (
+        <div
+          className="card border-2 border-violet-200 bg-gradient-to-br from-violet-50 via-purple-50 to-pink-50 cursor-pointer hover:shadow-lg transition-all group"
+          onClick={() => navigate(`/parenting/article/${recommendedArticle.id}`)}
+        >
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="p-1.5 bg-gradient-to-br from-violet-500 to-purple-600 rounded-lg">
+                  <Sparkles className="w-4 h-4 text-white" />
+                </div>
+                <span className="text-sm font-semibold text-violet-600">今日推荐 · 未读精选</span>
+                <span className="text-xs text-violet-400 bg-white/60 px-2 py-0.5 rounded-full">
+                  {recommendedArticle.readTime} 分钟阅读
+                </span>
+              </div>
+              <h3 className="text-xl font-bold text-slate-800 mb-2 group-hover:text-violet-600 transition-colors line-clamp-1">
+                {recommendedArticle.title}
+              </h3>
+              <p className="text-slate-500 text-sm line-clamp-2 mb-3">{recommendedArticle.summary}</p>
+              <div className="flex flex-wrap gap-2">
+                {recommendedArticle.topics.slice(0, 3).map((t) => (
+                  <span
+                    key={t}
+                    className="text-xs px-2.5 py-1 bg-white text-violet-600 rounded-full border border-violet-100 font-medium"
+                  >
+                    {t}
+                  </span>
+                ))}
+                {recommendedArticle.ageGroups.slice(0, 2).map((a) => (
+                  <span
+                    key={a}
+                    className="text-xs px-2.5 py-1 bg-emerald-50 text-emerald-600 rounded-full border border-emerald-100 font-medium"
+                  >
+                    {a === 'newborn'
+                      ? '新生儿'
+                      : a === '0-3months'
+                      ? '0-3月'
+                      : a === '4-6months'
+                      ? '4-6月'
+                      : a === '7-12months'
+                      ? '7-12月'
+                      : a === '1-2years'
+                      ? '1-2岁'
+                      : a === '2-3years'
+                      ? '2-3岁'
+                      : '3-6岁'}
+                  </span>
+                ))}
+              </div>
+            </div>
+            <div className="hidden sm:flex items-center justify-center w-24 h-24 rounded-2xl bg-white/60 border border-violet-100 flex-shrink-0 group-hover:scale-105 transition-transform">
+              <span className="text-5xl">{recommendedArticle.coverEmoji}</span>
+            </div>
+          </div>
+          <div className="mt-4 pt-4 border-t border-violet-100 flex items-center justify-between">
+            <div className="flex items-center gap-3 text-sm text-slate-500">
+              <span className="flex items-center gap-1.5">
+                <BookOpen className="w-4 h-4 text-violet-500" />
+                共 {PARENTING_ARTICLES.length} 篇育儿知识
+              </span>
+              {favoriteArticles.length > 0 && (
+                <span className="flex items-center gap-1.5">
+                  <Heart className="w-4 h-4 text-rose-500" fill="currentColor" />
+                  已收藏 {favoriteArticles.length} 篇
+                </span>
+              )}
+            </div>
+            <span className="text-sm font-medium text-violet-600 flex items-center gap-1 group-hover:gap-2 transition-all">
+              立即阅读
+              <ChevronRight className="w-4 h-4" />
+            </span>
+          </div>
+        </div>
+      )}
 
       <div className="card">
         <div className="flex items-center justify-between mb-6">

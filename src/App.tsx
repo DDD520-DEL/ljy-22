@@ -18,6 +18,9 @@ import BabyTimelinePage from "@/pages/BabyTimeline";
 import ExpenseTrackerPage from "@/pages/ExpenseTracker";
 import GrowthCalculatorPage from "@/pages/GrowthCalculator";
 import VaccineQueryPage from "@/pages/VaccineQuery";
+import ParentingEncyclopedia from "@/pages/ParentingEncyclopedia";
+import ArticleDetail from "@/pages/ArticleDetail";
+import Favorites from "@/pages/Favorites";
 
 export default function App() {
   return (
@@ -43,6 +46,9 @@ export default function App() {
           <Route path="checkup-compare" element={<CheckupComparePage />} />
           <Route path="export" element={<ExportPrintPage />} />
           <Route path="vaccine-certificate" element={<VaccineCertificatePage />} />
+          <Route path="parenting" element={<ParentingEncyclopedia />} />
+          <Route path="parenting/article/:id" element={<ArticleDetail />} />
+          <Route path="favorites" element={<Favorites />} />
           <Route path="*" element={<Dashboard />} />
         </Route>
       </Routes>
