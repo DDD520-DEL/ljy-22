@@ -50,7 +50,14 @@ export function formatDateTime(date: Date | string): string {
 }
 
 export function formatTime(date: Date | string): string {
+  if (typeof date === 'string' && /^\d{2}:\d{2}(:\d{2})?$/.test(date)) {
+    const parts = date.split(':');
+    return `${parts[0]}:${parts[1]}`;
+  }
   const d = typeof date === 'string' ? new Date(date) : new Date(date);
+  if (isNaN(d.getTime())) {
+    return date as string;
+  }
   const hours = String(d.getHours()).padStart(2, '0');
   const minutes = String(d.getMinutes()).padStart(2, '0');
   return `${hours}:${minutes}`;
