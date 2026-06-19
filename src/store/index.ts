@@ -372,6 +372,7 @@ export const useAppStore = create<AppState>()(
 
         const allReminders: Reminder[] = [];
         const abnormalReminders = state.reminders.filter((r) => r.type === 'abnormal');
+        const scheduleAdjustReminders = state.reminders.filter((r) => r.type === 'schedule_adjust');
         for (const child of state.children) {
           const childVaccineSchedules = state.vaccineSchedules.filter((s) => s.childId === child.id);
           const childCheckupSchedules = state.checkupSchedules.filter((s) => s.childId === child.id);
@@ -388,10 +389,14 @@ export const useAppStore = create<AppState>()(
           state.children.some((c) => c.id === ar.childId)
         );
 
+        const childScheduleAdjustReminders = scheduleAdjustReminders.filter((r) =>
+          state.children.some((c) => c.id === r.childId)
+        );
+
         const backupReminderId = 'system-backup-reminder';
         const existingBackupReminder = state.reminders.find((r) => r.relatedId === backupReminderId);
 
-        const mergedReminders = [...childAbnormalReminders, ...allReminders];
+        const mergedReminders = [...childAbnormalReminders, ...childScheduleAdjustReminders, ...allReminders];
         if (existingBackupReminder) {
           mergedReminders.push(existingBackupReminder);
         }
@@ -468,6 +473,7 @@ export const useAppStore = create<AppState>()(
         if (state.children.length > 0 && settings.reminderDaysBefore !== undefined) {
           const allReminders: Reminder[] = [];
           const abnormalReminders = state.reminders.filter((r) => r.type === 'abnormal');
+          const scheduleAdjustReminders = state.reminders.filter((r) => r.type === 'schedule_adjust');
           for (const child of state.children) {
             const childVaccineSchedules = state.vaccineSchedules.filter((s) => s.childId === child.id);
             const childCheckupSchedules = state.checkupSchedules.filter((s) => s.childId === child.id);
@@ -482,7 +488,10 @@ export const useAppStore = create<AppState>()(
           const childAbnormalReminders = abnormalReminders.filter((ar) =>
             state.children.some((c) => c.id === ar.childId)
           );
-          set({ settings: newSettings, reminders: [...childAbnormalReminders, ...allReminders] });
+          const childScheduleAdjustReminders = scheduleAdjustReminders.filter((r) =>
+            state.children.some((c) => c.id === r.childId)
+          );
+          set({ settings: newSettings, reminders: [...childAbnormalReminders, ...childScheduleAdjustReminders, ...allReminders] });
         } else {
           set({ settings: newSettings });
         }
