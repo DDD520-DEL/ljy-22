@@ -440,6 +440,8 @@ export interface BackupData {
   milestoneEvents: MilestoneEvent[];
   expenseRecords: ExpenseRecord[];
   growthCalculatorRecords: GrowthCalculatorRecord[];
+  favoriteArticles: string[];
+  readArticles: string[];
   settings: AppSettings;
 }
 

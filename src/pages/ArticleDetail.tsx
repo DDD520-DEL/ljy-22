@@ -281,7 +281,7 @@ export default function ArticleDetail() {
                 <div
                   key={checkup.monthAge}
                   className="p-4 bg-sky-50 rounded-xl border border-sky-100 hover:shadow-md transition-all cursor-pointer"
-                  onClick={() => navigate('/checkup-schedules')}
+                  onClick={() => navigate('/checkup-schedule')}
                 >
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-3">
@@ -335,7 +335,7 @@ export default function ArticleDetail() {
                 <div
                   key={`${vaccine.vaccineCode}-${vaccine.monthAge}`}
                   className="p-4 bg-emerald-50 rounded-xl border border-emerald-100 hover:shadow-md transition-all cursor-pointer"
-                  onClick={() => navigate('/vaccine-lookup')}
+                  onClick={() => navigate('/vaccine-query')}
                 >
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-3">
