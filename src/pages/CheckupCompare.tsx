@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import html2canvas from 'html2canvas';
 import {
   ArrowLeftRight,
   ChevronDown,
@@ -345,6 +346,8 @@ export default function CheckupComparePage() {
     }
   };
 
+  const [isCapturing, setIsCapturing] = useState(false);
+
   const handlePrint = () => {
     window.print();
   };
@@ -353,61 +356,37 @@ export default function CheckupComparePage() {
     if (!compareRef.current) return;
 
     try {
-      const canvas = await html2canvasFromElement(compareRef.current);
+      setIsCapturing(true);
+
+      const element = compareRef.current;
+      const scale = Math.min(window.devicePixelRatio || 2, 2);
+
+      const canvas = await html2canvas(element, {
+        scale: scale,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff',
+        logging: false,
+        onclone: (clonedDoc) => {
+          const clonedElement = clonedDoc.querySelector(
+            '[data-compare-content]'
+          ) as HTMLElement | null;
+          if (clonedElement) {
+            clonedElement.style.boxShadow = 'none';
+          }
+        },
+      });
+
       const link = document.createElement('a');
       link.download = `${child?.name || '宝宝'}_体检对比报告_${formatDate(new Date())}.png`;
       link.href = canvas.toDataURL('image/png');
       link.click();
-    } catch {
+    } catch (err) {
+      console.error('截图失败:', err);
       alert('截图生成失败，请使用浏览器截图功能或打印功能');
+    } finally {
+      setIsCapturing(false);
     }
-  };
-
-  const html2canvasFromElement = (element: HTMLElement): Promise<HTMLCanvasElement> => {
-    return new Promise((resolve, reject) => {
-      const rect = element.getBoundingClientRect();
-      const scale = window.devicePixelRatio || 2;
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-
-      if (!ctx) {
-        reject(new Error('无法获取画布上下文'));
-        return;
-      }
-
-      canvas.width = rect.width * scale;
-      canvas.height = rect.height * scale;
-      ctx.scale(scale, scale);
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, rect.width, rect.height);
-
-      const svgData = `
-        <svg xmlns="http://www.w3.org/2000/svg" width="${rect.width}" height="${rect.height}">
-          <foreignObject width="100%" height="100%">
-            <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: 'Noto Sans SC', sans-serif;">
-              ${element.outerHTML}
-            </div>
-          </foreignObject>
-        </svg>
-      `;
-
-      const img = new Image();
-      const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
-      const url = URL.createObjectURL(svgBlob);
-
-      img.onload = () => {
-        ctx.drawImage(img, 0, 0, rect.width, rect.height);
-        URL.revokeObjectURL(url);
-        resolve(canvas);
-      };
-
-      img.onerror = () => {
-        URL.revokeObjectURL(url);
-        reject(new Error('图片加载失败'));
-      };
-
-      img.src = url;
-    });
   };
 
   const handleSwap = () => {
@@ -481,11 +460,12 @@ export default function CheckupComparePage() {
 
         <div className="flex gap-3">
           <button
-            className="btn-secondary flex items-center gap-2"
+            className="btn-secondary flex items-center gap-2 disabled:opacity-60"
             onClick={handleExportImage}
+            disabled={isCapturing}
           >
-            <Camera className="w-5 h-5" />
-            截图分享
+            <Camera className={`w-5 h-5 ${isCapturing ? 'animate-pulse' : ''}`} />
+            {isCapturing ? '生成中...' : '截图分享'}
           </button>
           <button
             className="btn-primary flex items-center gap-2"
@@ -606,7 +586,7 @@ export default function CheckupComparePage() {
       </div>
 
       {record1 && record2 && (
-        <div ref={compareRef} className="bg-white rounded-2xl shadow-soft border border-mint-50/50 overflow-hidden">
+        <div ref={compareRef} data-compare-content className="bg-white rounded-2xl shadow-soft border border-mint-50/50 overflow-hidden">
           <div className="p-6 md:p-8 bg-gradient-to-r from-mint-50 via-white to-coral-50 border-b border-slate-100">
             <div className="text-center">
               <h2 className="text-2xl md:text-3xl font-display text-slate-800 mb-2">
