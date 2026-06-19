@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import {
   Home,
@@ -23,6 +23,9 @@ import {
   Settings,
   ArrowLeftRight,
   Thermometer,
+  Pill,
+  Check,
+  SkipForward,
 } from 'lucide-react';
 import { useAppStore } from '@/store';
 import { formatDateTime, getToday, getDaysBetween } from '@/utils/dateUtils';
@@ -37,6 +40,7 @@ const navItems = [
   { path: '/checkup-schedule', icon: Stethoscope, label: '儿保体检' },
   { path: '/temperature', icon: Thermometer, label: '体温记录' },
   { path: '/reaction-diary', icon: Activity, label: '反应日记' },
+  { path: '/medication', icon: Pill, label: '用药提醒' },
   { path: '/reminders', icon: Bell, label: '提醒中心' },
   { path: '/records', icon: FileText, label: '记录管理' },
   { path: '/checkup-compare', icon: ArrowLeftRight, label: '体检对比' },
@@ -52,10 +56,13 @@ export default function Layout() {
     deleteChild,
     reminders,
     reactionDiaries,
+    medicationReminders,
     settings,
     exportBackup,
     importBackup,
     refreshBackupReminder,
+    refreshMedicationDoseStatus,
+    updateMedicationDoseStatus,
     updateSettings,
   } = useAppStore();
   const [showChildList, setShowChildList] = useState(false);
@@ -70,6 +77,26 @@ export default function Layout() {
   const currentChild = children.find((c) => c.id === currentChildId) || null;
   const pendingReminders = reminders.filter((r) => r.status !== '已完成').length;
   const activeDiaries = reactionDiaries.filter((d) => d.childId === currentChildId && d.status === '观察中').length;
+  const today = getToday();
+  const pendingMedications = medicationReminders
+    .filter((m) => m.childId === currentChildId && m.status === '进行中')
+    .reduce(
+      (count, m) =>
+        count +
+        m.doses.filter((d) => d.date === today && (d.status === '待服用' || d.status === '已过期')).length,
+      0
+    );
+
+  const [notifiedDoseIds, setNotifiedDoseIds] = useState<Set<string>>(new Set());
+  const [popupDose, setPopupDose] = useState<{
+    id: string;
+    reminderId: string;
+    medicationName: string;
+    dosage: string;
+    unit: string;
+    time: string;
+    medicationType: string;
+  } | null>(null);
 
   const handleSwitchChild = (id: string) => {
     switchChild(id);
@@ -93,11 +120,59 @@ export default function Layout() {
     }
   };
 
+  useEffect(() => {
+    refreshMedicationDoseStatus();
+
+    const checkMedicationReminders = () => {
+      const now = new Date();
+      const todayStr = getToday();
+
+      for (const reminder of medicationReminders) {
+        if (reminder.childId !== currentChildId || reminder.status !== '进行中') continue;
+
+        for (const dose of reminder.doses) {
+          if (dose.date !== todayStr || dose.status !== '待服用') continue;
+
+          const doseMinutes = parseInt(dose.time.split(':')[0]) * 60 + parseInt(dose.time.split(':')[1]);
+          const nowMinutes = now.getHours() * 60 + now.getMinutes();
+          const diff = nowMinutes - doseMinutes;
+
+          if (diff >= 0 && diff <= 5 && !notifiedDoseIds.has(dose.id)) {
+            setNotifiedDoseIds((prev) => new Set([...prev, dose.id]));
+            setPopupDose({
+              id: dose.id,
+              reminderId: reminder.id,
+              medicationName: reminder.medicationName,
+              dosage: reminder.dosage,
+              unit: reminder.unit,
+              time: dose.time,
+              medicationType: reminder.medicationType,
+            });
+
+            if ('Notification' in window && Notification.permission === 'granted') {
+              new Notification(`💊 用药提醒：${reminder.medicationName}`, {
+                body: `${dose.time} · ${reminder.dosage} ${reminder.unit} · ${reminder.medicationType}`,
+                icon: '/favicon.svg',
+              });
+            }
+            break;
+          }
+        }
+      }
+    };
+
+    checkMedicationReminders();
+    const interval = setInterval(() => {
+      refreshMedicationDoseStatus();
+      checkMedicationReminders();
+    }, 60000);
+    return () => clearInterval(interval);
+  }, [refreshMedicationDoseStatus, medicationReminders, currentChildId, notifiedDoseIds]);
+
   const getGenderEmoji = (gender: '男' | '女') => {
     return gender === '男' ? '👦' : '👧';
   };
 
-  const today = getToday();
   const lastBackupAt = settings.lastBackupAt;
   const daysSinceBackup = lastBackupAt
     ? getDaysBetween(lastBackupAt.split('T')[0], today)
@@ -235,6 +310,7 @@ export default function Layout() {
             const Icon = item.icon;
             const showBadge = item.path === '/reminders' && pendingReminders > 0;
             const showDiaryBadge = item.path === '/reaction-diary' && activeDiaries > 0;
+            const showMedicationBadge = item.path === '/medication' && pendingMedications > 0;
             return (
               <NavLink
                 key={item.path}
@@ -254,6 +330,11 @@ export default function Layout() {
                 {showDiaryBadge && (
                   <span className="min-w-5 h-5 px-1.5 bg-mint-500 text-white text-xs rounded-full flex items-center justify-center font-medium animate-pulse-soft">
                     {activeDiaries}
+                  </span>
+                )}
+                {showMedicationBadge && (
+                  <span className="min-w-5 h-5 px-1.5 bg-purple-500 text-white text-xs rounded-full flex items-center justify-center font-medium animate-pulse-soft">
+                    {pendingMedications}
                   </span>
                 )}
               </NavLink>
@@ -391,6 +472,79 @@ export default function Layout() {
           importResult={importResult}
           updateSettings={updateSettings}
         />
+      )}
+
+      {popupDose && (
+        <div className="fixed top-4 right-4 z-50 animate-bounce-in">
+          <div className="bg-white rounded-3xl shadow-soft-lg border-2 border-purple-300 max-w-sm w-full overflow-hidden animate-pulse-soft">
+            <div className="bg-gradient-to-r from-purple-400 to-coral-400 p-5 text-white">
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center animate-bounce">
+                    <Pill className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-display">⏰ 用药时间到！</h3>
+                    <p className="text-white/90 text-sm mt-1">该给宝宝服药啦</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setPopupDose(null)}
+                  className="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+            <div className="p-5 space-y-4">
+              <div className="p-4 rounded-2xl bg-purple-50 border border-purple-100">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs text-purple-500 font-medium">服药时间</p>
+                  <span className="text-2xl font-bold text-purple-700">{popupDose.time}</span>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-slate-500">药品名称</span>
+                    <span className="font-semibold text-slate-800">{popupDose.medicationName}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-slate-500">服用剂量</span>
+                    <span className="font-semibold text-coral-600">{popupDose.dosage} {popupDose.unit}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-slate-500">药品类型</span>
+                    <span className="font-medium text-slate-700">{popupDose.medicationType}</span>
+                  </div>
+                </div>
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    updateMedicationDoseStatus(popupDose.reminderId, popupDose.id, '已服用');
+                    setPopupDose(null);
+                  }}
+                  className="flex-1 py-3 rounded-2xl bg-gradient-to-r from-mint-400 to-mint-500 text-white font-semibold shadow-soft hover:shadow-lg transition-all flex items-center justify-center gap-2"
+                >
+                  <Check className="w-5 h-5" />
+                  已服药 ✓
+                </button>
+                <button
+                  onClick={() => {
+                    updateMedicationDoseStatus(popupDose.reminderId, popupDose.id, '已跳过');
+                    setPopupDose(null);
+                  }}
+                  className="py-3 px-5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-600 font-medium transition-colors flex items-center gap-2"
+                >
+                  <SkipForward className="w-4 h-4" />
+                  跳过
+                </button>
+              </div>
+              <p className="text-xs text-center text-slate-400">
+                💡 请确保宝宝已安全服药后再标记完成
+              </p>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

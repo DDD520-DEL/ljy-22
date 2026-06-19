@@ -15,6 +15,9 @@ import {
   Shield,
   AlertOctagon,
   Thermometer,
+  Pill,
+  Check,
+  SkipForward,
 } from 'lucide-react';
 import { useAppStore } from '@/store';
 import {
@@ -32,17 +35,32 @@ const quickLinks = [
   { path: '/vaccine-schedule', icon: Syringe, label: '疫苗接种', color: 'from-mint-400 to-mint-500', emoji: '💉' },
   { path: '/vaccine-certificate', icon: Shield, label: '电子接种证', color: 'from-emerald-400 to-emerald-500', emoji: '📘' },
   { path: '/checkup-schedule', icon: Stethoscope, label: '儿保体检', color: 'from-coral-400 to-coral-500', emoji: '🏥' },
+  { path: '/medication', icon: Pill, label: '用药提醒', color: 'from-purple-400 to-purple-500', emoji: '💊' },
   { path: '/temperature', icon: Thermometer, label: '体温记录', color: 'from-rose-400 to-rose-500', emoji: '🌡️' },
   { path: '/reaction-diary', icon: Activity, label: '反应日记', color: 'from-teal-400 to-teal-500', emoji: '📝' },
   { path: '/reminders', icon: Bell, label: '提醒中心', color: 'from-amber-400 to-amber-500', emoji: '🔔' },
   { path: '/records', icon: FileText, label: '记录管理', color: 'from-blue-400 to-blue-500', emoji: '📋' },
-  { path: '/export', icon: Printer, label: '导出打印', color: 'from-purple-400 to-purple-500', emoji: '🖨️' },
+  { path: '/export', icon: Printer, label: '导出打印', color: 'from-indigo-400 to-indigo-500', emoji: '🖨️' },
 ];
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { children, currentChildId, vaccineSchedules, checkupSchedules, reminders, vaccineRecords, checkupRecords, reactionDiaries, abnormalItems, temperatureRecords, refreshReminders } =
-    useAppStore();
+  const {
+    children,
+    currentChildId,
+    vaccineSchedules,
+    checkupSchedules,
+    reminders,
+    vaccineRecords,
+    checkupRecords,
+    reactionDiaries,
+    abnormalItems,
+    temperatureRecords,
+    medicationReminders,
+    refreshReminders,
+    refreshMedicationDoseStatus,
+    updateMedicationDoseStatus,
+  } = useAppStore();
 
   const child = children.find((c) => c.id === currentChildId) || null;
   const currentVaccineSchedules = vaccineSchedules.filter((s) => s.childId === currentChildId);
@@ -53,6 +71,9 @@ export default function Dashboard() {
   const currentReactionDiaries = reactionDiaries.filter((d) => d.childId === currentChildId);
   const currentAbnormalItems = abnormalItems.filter((a) => a.childId === currentChildId && a.status === '待复查');
   const currentTemperatureRecords = temperatureRecords.filter((r) => r.childId === currentChildId);
+  const currentMedicationReminders = medicationReminders.filter(
+    (m) => m.childId === currentChildId && m.status === '进行中'
+  );
   const activeDiaries = currentReactionDiaries.filter((d) => d.status === '观察中');
 
   useEffect(() => {
@@ -61,11 +82,25 @@ export default function Dashboard() {
       return;
     }
     refreshReminders();
-  }, [child, navigate, refreshReminders]);
+    refreshMedicationDoseStatus();
+  }, [child, navigate, refreshReminders, refreshMedicationDoseStatus]);
 
   if (!child) return null;
 
   const today = getToday();
+
+  const todayMedicationDoses = currentMedicationReminders.flatMap((reminder) =>
+    reminder.doses
+      .filter((d) => d.date === today && (d.status === '待服用' || d.status === '已过期'))
+      .map((dose) => ({
+        ...dose,
+        reminderId: reminder.id,
+        medicationName: reminder.medicationName,
+        dosage: reminder.dosage,
+        unit: reminder.unit,
+        medicationType: reminder.medicationType,
+      }))
+  ).sort((a, b) => a.time.localeCompare(b.time));
   const monthAge = calculateMonthAge(child.birthDate);
 
   const totalVaccines = currentVaccineSchedules.length;
@@ -160,6 +195,88 @@ export default function Dashboard() {
           {currentAbnormalItems.length > 4 && (
             <p className="text-xs text-red-400 mt-3 text-center">
               还有 {currentAbnormalItems.length - 4} 项异常，请前往提醒中心查看
+            </p>
+          )}
+        </div>
+      )}
+
+      {todayMedicationDoses.length > 0 && (
+        <div className="card border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-white">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold text-lg text-purple-700 flex items-center gap-2">
+              <Pill className="w-6 h-6 text-purple-500" />
+              今日用药提醒
+              <span className="ml-2 text-2xl font-bold text-purple-600">{todayMedicationDoses.length}</span>
+              <span className="text-sm font-normal text-purple-400">次待服用</span>
+            </h3>
+            <Link to="/medication" className="text-purple-500 text-sm font-medium flex items-center hover:text-purple-600">
+              管理用药 <ChevronRight className="w-4 h-4" />
+            </Link>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+            {todayMedicationDoses.map((dose) => {
+              const isOverdue = dose.status === '已过期';
+              return (
+                <div
+                  key={dose.id}
+                  className={`p-4 rounded-2xl border-2 transition-all ${
+                    isOverdue
+                      ? 'bg-red-50 border-red-200'
+                      : 'bg-white border-purple-100 hover:shadow-sm animate-pulse-soft'
+                  }`}
+                >
+                  <div className="flex items-start justify-between mb-2">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                      isOverdue ? 'bg-red-100' : 'bg-purple-100'
+                    }`}>
+                      <Clock className={`w-5 h-5 ${isOverdue ? 'text-red-500' : 'text-purple-500'}`} />
+                    </div>
+                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                      isOverdue
+                        ? 'bg-red-100 text-red-600'
+                        : 'bg-purple-100 text-purple-600'
+                    }`}>
+                      {isOverdue ? '已错过' : '待服用'}
+                    </span>
+                  </div>
+                  <p className={`text-xl font-bold mb-1 ${isOverdue ? 'text-red-700' : 'text-slate-800'}`}>
+                    {dose.time}
+                  </p>
+                  <p className="font-medium text-slate-700 text-sm mb-1 truncate">
+                    {dose.medicationName}
+                  </p>
+                  <p className="text-xs text-slate-500 mb-3">
+                    {dose.dosage} {dose.unit} · {dose.medicationType}
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => updateMedicationDoseStatus(dose.reminderId, dose.id, '已服用')}
+                      className={`flex-1 py-2 rounded-xl text-xs font-medium transition-colors flex items-center justify-center gap-1 ${
+                        isOverdue
+                          ? 'bg-coral-500 hover:bg-coral-600 text-white'
+                          : 'bg-mint-500 hover:bg-mint-600 text-white'
+                      }`}
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                      {isOverdue ? '已补服' : '已服药'}
+                    </button>
+                    {!isOverdue && (
+                      <button
+                        onClick={() => updateMedicationDoseStatus(dose.reminderId, dose.id, '已跳过')}
+                        className="py-2 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs transition-colors"
+                        title="跳过"
+                      >
+                        <SkipForward className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          {todayMedicationDoses.length > 4 && (
+            <p className="text-xs text-purple-400 mt-3 text-center">
+              还有 {todayMedicationDoses.length - 4} 次用药，请前往用药提醒页面查看
             </p>
           )}
         </div>
@@ -375,7 +492,7 @@ export default function Dashboard() {
           <span className="text-2xl">🚀</span>
           快捷入口
         </h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
+        <div className="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-9 gap-4">
           {quickLinks.map((link) => {
             const Icon = link.icon;
             return (

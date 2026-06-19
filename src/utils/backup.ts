@@ -11,10 +11,11 @@ import type {
   AbnormalItem,
   AppSettings,
   TemperatureRecord,
+  MedicationReminder,
 } from '@/types';
 import { formatDate, formatDateTime } from './dateUtils';
 
-const BACKUP_VERSION = 1;
+const BACKUP_VERSION = 2;
 const BACKUP_FILENAME_PREFIX = '宝宝数据备份';
 
 interface BackupState {
@@ -29,6 +30,7 @@ interface BackupState {
   milestoneAssessments: MilestoneAssessment[];
   abnormalItems: AbnormalItem[];
   temperatureRecords: TemperatureRecord[];
+  medicationReminders: MedicationReminder[];
   settings: AppSettings;
 }
 
@@ -47,6 +49,7 @@ export function createBackupData(state: BackupState): BackupData {
     milestoneAssessments: state.milestoneAssessments,
     abnormalItems: state.abnormalItems,
     temperatureRecords: state.temperatureRecords,
+    medicationReminders: state.medicationReminders || [],
     settings: state.settings,
   };
 }
@@ -68,6 +71,7 @@ export function validateBackupData(data: unknown): data is BackupData {
   if (!Array.isArray(d.milestoneAssessments)) return false;
   if (!Array.isArray(d.abnormalItems)) return false;
   if (!Array.isArray(d.temperatureRecords)) return false;
+  if (!Array.isArray(d.medicationReminders) && d.version >= 2) return false;
   if (typeof d.settings !== 'object' || d.settings === null) return false;
 
   return true;
@@ -115,6 +119,7 @@ export function getBackupSummary(data: BackupData): string {
   const checkupRecordCount = data.checkupRecords.length;
   const milestoneCount = data.milestoneAssessments.length;
   const temperatureCount = data.temperatureRecords?.length || 0;
+  const medicationCount = data.medicationReminders?.length || 0;
   const exportDate = formatDateTime(data.exportedAt);
 
   return `备份时间：${exportDate}
@@ -123,5 +128,6 @@ export function getBackupSummary(data: BackupData): string {
 体检记录：${checkupRecordCount} 条
 发育评估：${milestoneCount} 次
 体温记录：${temperatureCount} 条
+用药提醒：${medicationCount} 个
 版本：v${data.version}`;
 }

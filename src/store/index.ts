@@ -15,6 +15,8 @@ import type {
   AbnormalItem,
   BackupData,
   TemperatureRecord,
+  MedicationReminder,
+  MedicationDoseStatus,
 } from '@/types';
 import {
   generateVaccineSchedules,
@@ -26,6 +28,7 @@ import {
   addDays,
   getDaysBetween,
   recalculateSubsequentDoses,
+  formatDate,
 } from '@/utils/dateUtils';
 import {
   createBackupData,
@@ -45,6 +48,7 @@ interface AppState {
   milestoneAssessments: MilestoneAssessment[];
   abnormalItems: AbnormalItem[];
   temperatureRecords: TemperatureRecord[];
+  medicationReminders: MedicationReminder[];
   settings: AppSettings;
 
   get currentChild(): Child | null;
@@ -75,6 +79,13 @@ interface AppState {
   addTemperatureRecord: (record: Omit<TemperatureRecord, 'id' | 'childId' | 'createdAt' | 'updatedAt'>) => void;
   updateTemperatureRecord: (id: string, data: Partial<TemperatureRecord>) => void;
   deleteTemperatureRecord: (id: string) => void;
+
+  addMedicationReminder: (reminder: Omit<MedicationReminder, 'id' | 'childId' | 'createdAt' | 'updatedAt' | 'doses' | 'status'>) => void;
+  updateMedicationReminder: (id: string, data: Partial<MedicationReminder>) => void;
+  deleteMedicationReminder: (id: string) => void;
+  updateMedicationDoseStatus: (reminderId: string, doseId: string, status: MedicationDoseStatus) => void;
+  cancelMedicationReminder: (id: string) => void;
+  refreshMedicationDoseStatus: () => void;
 
   updateSettings: (settings: Partial<AppSettings>) => void;
 
@@ -112,6 +123,7 @@ export const useAppStore = create<AppState>()(
       milestoneAssessments: [],
       abnormalItems: [],
       temperatureRecords: [],
+      medicationReminders: [],
       settings: initialSettings,
 
       get currentChild() {
@@ -191,6 +203,7 @@ export const useAppStore = create<AppState>()(
           const newMilestoneAssessments = state.milestoneAssessments.filter((a) => a.childId !== id);
           const newAbnormalItems = state.abnormalItems.filter((a) => a.childId !== id);
           const newTemperatureRecords = state.temperatureRecords.filter((r) => r.childId !== id);
+          const newMedicationReminders = state.medicationReminders.filter((m) => m.childId !== id);
 
           let newCurrentChildId = state.currentChildId;
           if (state.currentChildId === id) {
@@ -209,6 +222,7 @@ export const useAppStore = create<AppState>()(
             milestoneAssessments: newMilestoneAssessments,
             abnormalItems: newAbnormalItems,
             temperatureRecords: newTemperatureRecords,
+            medicationReminders: newMedicationReminders,
           };
         });
       },
@@ -508,6 +522,140 @@ export const useAppStore = create<AppState>()(
         }));
       },
 
+      addMedicationReminder: (reminderData) => {
+        const state = get();
+        if (!state.currentChildId) return;
+
+        const now = new Date().toISOString();
+        const doses = [];
+        const start = new Date(reminderData.startDate);
+        const end = new Date(reminderData.endDate);
+
+        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+          const dateStr = formatDate(d);
+          for (const time of reminderData.times) {
+            doses.push({
+              id: generateId(),
+              date: dateStr,
+              time,
+              status: '待服用' as const,
+            });
+          }
+        }
+
+        const newReminder: MedicationReminder = {
+          ...reminderData,
+          id: generateId(),
+          childId: state.currentChildId,
+          doses,
+          status: '进行中',
+          createdAt: now,
+          updatedAt: now,
+        };
+
+        set((state) => ({
+          medicationReminders: [...state.medicationReminders, newReminder],
+        }));
+      },
+
+      updateMedicationReminder: (id, data) => {
+        const now = new Date().toISOString();
+        set((state) => ({
+          medicationReminders: state.medicationReminders.map((r) =>
+            r.id === id ? { ...r, ...data, updatedAt: now } : r
+          ),
+        }));
+      },
+
+      deleteMedicationReminder: (id) => {
+        set((state) => ({
+          medicationReminders: state.medicationReminders.filter((r) => r.id !== id),
+        }));
+      },
+
+      updateMedicationDoseStatus: (reminderId, doseId, status) => {
+        const now = new Date().toISOString();
+        set((state) => {
+          const updatedReminders = state.medicationReminders.map((r) => {
+            if (r.id !== reminderId) return r;
+
+            const updatedDoses = r.doses.map((d) =>
+              d.id === doseId
+                ? {
+                    ...d,
+                    status,
+                    takenAt: status === '已服用' ? now : d.takenAt,
+                  }
+                : d
+            );
+
+            const allDosesCompleted = updatedDoses.every(
+              (d) => d.status === '已服用' || d.status === '已跳过' || d.status === '已过期'
+            );
+            const hasAnyPending = updatedDoses.some((d) => d.status === '待服用');
+
+            let newStatus = r.status;
+            if (allDosesCompleted && r.status === '进行中') {
+              newStatus = '已完成';
+            } else if (!hasAnyPending && r.status === '进行中') {
+              newStatus = '已完成';
+            }
+
+            return {
+              ...r,
+              doses: updatedDoses,
+              status: newStatus,
+              updatedAt: now,
+            };
+          });
+
+          return { medicationReminders: updatedReminders };
+        });
+      },
+
+      cancelMedicationReminder: (id) => {
+        const now = new Date().toISOString();
+        set((state) => ({
+          medicationReminders: state.medicationReminders.map((r) =>
+            r.id === id ? { ...r, status: '已取消', updatedAt: now } : r
+          ),
+        }));
+      },
+
+      refreshMedicationDoseStatus: () => {
+        const today = getToday();
+        const nowTime = new Date();
+        const currentTimeStr = `${String(nowTime.getHours()).padStart(2, '0')}:${String(nowTime.getMinutes()).padStart(2, '0')}`;
+
+        set((state) => ({
+          medicationReminders: state.medicationReminders.map((r) => {
+            if (r.status !== '进行中') return r;
+
+            let hasChanges = false;
+            const updatedDoses = r.doses.map((d) => {
+              if (d.status !== '待服用') return d;
+
+              const dateCompare = getDaysBetween(d.date, today);
+              if (dateCompare > 0) return d;
+
+              if (dateCompare < 0 || (dateCompare === 0 && d.time < currentTimeStr)) {
+                hasChanges = true;
+                return { ...d, status: '已过期' as const };
+              }
+              return d;
+            });
+
+            if (!hasChanges) return r;
+
+            return {
+              ...r,
+              doses: updatedDoses,
+              updatedAt: new Date().toISOString(),
+            };
+          }),
+        }));
+      },
+
       updateSettings: (settings) => {
         const state = get();
         const newSettings = { ...state.settings, ...settings };
@@ -746,6 +894,7 @@ export const useAppStore = create<AppState>()(
           milestoneAssessments: data.milestoneAssessments,
           abnormalItems: data.abnormalItems,
           temperatureRecords: data.temperatureRecords || [],
+          medicationReminders: data.medicationReminders || [],
           settings: data.settings,
         });
         return data;
@@ -820,6 +969,10 @@ export const useAppStore = create<AppState>()(
             ...schedule,
             originalPlannedDate: schedule.originalPlannedDate || schedule.plannedDate,
           }));
+        }
+
+        if (!state.medicationReminders) {
+          state.medicationReminders = [];
         }
         
         return state as AppState;

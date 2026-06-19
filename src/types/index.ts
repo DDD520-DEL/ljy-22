@@ -177,6 +177,7 @@ export interface BackupData {
   milestoneAssessments: MilestoneAssessment[];
   abnormalItems: AbnormalItem[];
   temperatureRecords: TemperatureRecord[];
+  medicationReminders: MedicationReminder[];
   settings: AppSettings;
 }
 
@@ -255,6 +256,35 @@ export interface TemperatureRecord {
   measureDate: string;
   measureTime: string;
   notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type MedicationDoseStatus = '待服用' | '已服用' | '已跳过' | '已过期';
+
+export interface MedicationDose {
+  id: string;
+  date: string;
+  time: string;
+  status: MedicationDoseStatus;
+  takenAt?: string;
+  notes?: string;
+}
+
+export interface MedicationReminder {
+  id: string;
+  childId: string;
+  medicationName: string;
+  medicationType: string;
+  dosage: string;
+  unit: string;
+  startDate: string;
+  endDate: string;
+  timesPerDay: number;
+  times: string[];
+  doses: MedicationDose[];
+  notes?: string;
+  status: '进行中' | '已完成' | '已取消';
   createdAt: string;
   updatedAt: string;
 }
