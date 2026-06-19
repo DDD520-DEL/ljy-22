@@ -405,6 +405,21 @@ export interface MonthlyExpenseSummary {
   icon: string;
 }
 
+export interface GrowthCalculatorRecord {
+  id: string;
+  childId: string;
+  gender: '男' | '女';
+  monthAge: number;
+  weight?: number;
+  height?: number;
+  weightPercentile?: number;
+  heightPercentile?: number;
+  weightStatus?: string;
+  heightStatus?: string;
+  conclusion: string;
+  createdAt: string;
+}
+
 export interface BackupData {
   version: number;
   exportedAt: string;
@@ -424,5 +439,6 @@ export interface BackupData {
   allergyRecords: AllergyRecord[];
   milestoneEvents: MilestoneEvent[];
   expenseRecords: ExpenseRecord[];
+  growthCalculatorRecords: GrowthCalculatorRecord[];
   settings: AppSettings;
 }

@@ -30,6 +30,7 @@ import {
   ShieldAlert,
   Sparkles,
   Wallet,
+  BarChart3,
 } from 'lucide-react';
 import { useAppStore } from '@/store';
 import { formatDateTime, getToday, getDaysBetween } from '@/utils/dateUtils';
@@ -52,6 +53,7 @@ const navItems = [
   { path: '/reminders', icon: Bell, label: '提醒中心' },
   { path: '/records', icon: FileText, label: '记录管理' },
   { path: '/checkup-compare', icon: ArrowLeftRight, label: '体检对比' },
+  { path: '/growth-calculator', icon: BarChart3, label: '百分位计算' },
   { path: '/export', icon: Printer, label: '导出打印' },
 ];
 

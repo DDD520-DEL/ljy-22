@@ -21,6 +21,7 @@ import type {
   AllergyRecord,
   MilestoneEvent,
   ExpenseRecord,
+  GrowthCalculatorRecord,
 } from '@/types';
 import {
   generateVaccineSchedules,
@@ -57,6 +58,7 @@ interface AppState {
   allergyRecords: AllergyRecord[];
   milestoneEvents: MilestoneEvent[];
   expenseRecords: ExpenseRecord[];
+  growthCalculatorRecords: GrowthCalculatorRecord[];
   settings: AppSettings;
 
   get currentChild(): Child | null;
@@ -111,6 +113,9 @@ interface AppState {
   updateExpenseRecord: (id: string, data: Partial<ExpenseRecord>) => void;
   deleteExpenseRecord: (id: string) => void;
 
+  addGrowthCalculatorRecord: (record: Omit<GrowthCalculatorRecord, 'id' | 'childId' | 'createdAt'>) => void;
+  deleteGrowthCalculatorRecord: (id: string) => void;
+
   updateSettings: (settings: Partial<AppSettings>) => void;
 
   updateVaccineScheduleStatus: (scheduleId: string, status: VaccineSchedule['status']) => void;
@@ -152,6 +157,7 @@ export const useAppStore = create<AppState>()(
       allergyRecords: [],
       milestoneEvents: [],
       expenseRecords: [],
+      growthCalculatorRecords: [],
       settings: initialSettings,
 
       get currentChild() {
@@ -236,6 +242,7 @@ export const useAppStore = create<AppState>()(
           const newAllergyRecords = state.allergyRecords.filter((r) => r.childId !== id);
           const newMilestoneEvents = state.milestoneEvents.filter((e) => e.childId !== id);
           const newExpenseRecords = state.expenseRecords.filter((r) => r.childId !== id);
+          const newGrowthCalculatorRecords = state.growthCalculatorRecords.filter((r) => r.childId !== id);
 
           let newCurrentChildId = state.currentChildId;
           if (state.currentChildId === id) {
@@ -259,6 +266,7 @@ export const useAppStore = create<AppState>()(
             allergyRecords: newAllergyRecords,
             milestoneEvents: newMilestoneEvents,
             expenseRecords: newExpenseRecords,
+            growthCalculatorRecords: newGrowthCalculatorRecords,
           };
         });
       },
@@ -824,6 +832,28 @@ export const useAppStore = create<AppState>()(
         }));
       },
 
+      addGrowthCalculatorRecord: (record) => {
+        const state = get();
+        if (!state.currentChildId) return;
+
+        const newRecord: GrowthCalculatorRecord = {
+          ...record,
+          id: generateId(),
+          childId: state.currentChildId,
+          createdAt: new Date().toISOString(),
+        };
+
+        set((state) => ({
+          growthCalculatorRecords: [...state.growthCalculatorRecords, newRecord],
+        }));
+      },
+
+      deleteGrowthCalculatorRecord: (id) => {
+        set((state) => ({
+          growthCalculatorRecords: state.growthCalculatorRecords.filter((r) => r.id !== id),
+        }));
+      },
+
       updateSettings: (settings) => {
         const state = get();
         const newSettings = { ...state.settings, ...settings };
@@ -1067,6 +1097,7 @@ export const useAppStore = create<AppState>()(
           allergyRecords: data.allergyRecords || [],
           milestoneEvents: data.milestoneEvents || [],
           expenseRecords: (data as unknown as { expenseRecords?: ExpenseRecord[] }).expenseRecords || [],
+          growthCalculatorRecords: (data as unknown as { growthCalculatorRecords?: GrowthCalculatorRecord[] }).growthCalculatorRecords || [],
           settings: data.settings,
         });
         return data;
@@ -1161,6 +1192,10 @@ export const useAppStore = create<AppState>()(
 
         if (!state.expenseRecords) {
           state.expenseRecords = [];
+        }
+
+        if (!state.growthCalculatorRecords) {
+          state.growthCalculatorRecords = [];
         }
         
         return state as AppState;

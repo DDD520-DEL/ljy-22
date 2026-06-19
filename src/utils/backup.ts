@@ -16,10 +16,11 @@ import type {
   AllergyRecord,
   MilestoneEvent,
   ExpenseRecord,
+  GrowthCalculatorRecord,
 } from '@/types';
 import { formatDate, formatDateTime } from './dateUtils';
 
-const BACKUP_VERSION = 6;
+const BACKUP_VERSION = 7;
 const BACKUP_FILENAME_PREFIX = '宝宝数据备份';
 
 interface BackupState {
@@ -39,6 +40,7 @@ interface BackupState {
   allergyRecords: AllergyRecord[];
   milestoneEvents: MilestoneEvent[];
   expenseRecords: ExpenseRecord[];
+  growthCalculatorRecords: GrowthCalculatorRecord[];
   settings: AppSettings;
 }
 
@@ -62,6 +64,7 @@ export function createBackupData(state: BackupState): BackupData {
     allergyRecords: state.allergyRecords || [],
     milestoneEvents: state.milestoneEvents || [],
     expenseRecords: state.expenseRecords || [],
+    growthCalculatorRecords: state.growthCalculatorRecords || [],
     settings: state.settings,
   };
 }
@@ -88,6 +91,7 @@ export function validateBackupData(data: unknown): data is BackupData {
   if (!Array.isArray(d.allergyRecords) && d.version >= 4) return false;
   if (!Array.isArray(d.milestoneEvents) && d.version >= 5) return false;
   if (!Array.isArray((d as unknown as { expenseRecords?: unknown[] }).expenseRecords) && d.version >= 6) return false;
+  if (!Array.isArray((d as unknown as { growthCalculatorRecords?: unknown[] }).growthCalculatorRecords) && d.version >= 7) return false;
   if (typeof d.settings !== 'object' || d.settings === null) return false;
 
   return true;
@@ -140,6 +144,7 @@ export function getBackupSummary(data: BackupData): string {
   const allergyCount = data.allergyRecords?.length || 0;
   const milestoneEventCount = data.milestoneEvents?.length || 0;
   const expenseCount = (data as unknown as { expenseRecords?: unknown[] }).expenseRecords?.length || 0;
+  const growthCalcCount = (data as unknown as { growthCalculatorRecords?: unknown[] }).growthCalculatorRecords?.length || 0;
   const exportDate = formatDateTime(data.exportedAt);
 
   return `备份时间：${exportDate}
@@ -153,5 +158,6 @@ export function getBackupSummary(data: BackupData): string {
 过敏记录：${allergyCount} 条
 大事件记录：${milestoneEventCount} 条
 费用记录：${expenseCount} 条
+百分位计算：${growthCalcCount} 条
 版本：v${data.version}`;
 }
