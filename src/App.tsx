@@ -17,6 +17,7 @@ import AllergyRecordPage from "@/pages/AllergyRecord";
 import BabyTimelinePage from "@/pages/BabyTimeline";
 import ExpenseTrackerPage from "@/pages/ExpenseTracker";
 import GrowthCalculatorPage from "@/pages/GrowthCalculator";
+import VaccineQueryPage from "@/pages/VaccineQuery";
 
 export default function App() {
   return (
@@ -33,6 +34,7 @@ export default function App() {
           <Route path="timeline" element={<BabyTimelinePage />} />
           <Route path="expense" element={<ExpenseTrackerPage />} />
           <Route path="growth-calculator" element={<GrowthCalculatorPage />} />
+          <Route path="vaccine-query" element={<VaccineQueryPage />} />
           <Route path="reaction-diary" element={<ReactionDiaryPage />} />
           <Route path="reaction-diary/:id" element={<ReactionDiaryPage />} />
           <Route path="reminders" element={<RemindersPage />} />
