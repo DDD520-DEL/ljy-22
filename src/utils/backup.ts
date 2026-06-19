@@ -14,10 +14,11 @@ import type {
   MedicationReminder,
   SleepRecord,
   AllergyRecord,
+  MilestoneEvent,
 } from '@/types';
 import { formatDate, formatDateTime } from './dateUtils';
 
-const BACKUP_VERSION = 4;
+const BACKUP_VERSION = 5;
 const BACKUP_FILENAME_PREFIX = '宝宝数据备份';
 
 interface BackupState {
@@ -35,6 +36,7 @@ interface BackupState {
   medicationReminders: MedicationReminder[];
   sleepRecords: SleepRecord[];
   allergyRecords: AllergyRecord[];
+  milestoneEvents: MilestoneEvent[];
   settings: AppSettings;
 }
 
@@ -56,6 +58,7 @@ export function createBackupData(state: BackupState): BackupData {
     medicationReminders: state.medicationReminders || [],
     sleepRecords: state.sleepRecords || [],
     allergyRecords: state.allergyRecords || [],
+    milestoneEvents: state.milestoneEvents || [],
     settings: state.settings,
   };
 }
@@ -80,6 +83,7 @@ export function validateBackupData(data: unknown): data is BackupData {
   if (!Array.isArray(d.medicationReminders) && d.version >= 2) return false;
   if (!Array.isArray(d.sleepRecords) && d.version >= 3) return false;
   if (!Array.isArray(d.allergyRecords) && d.version >= 4) return false;
+  if (!Array.isArray(d.milestoneEvents) && d.version >= 5) return false;
   if (typeof d.settings !== 'object' || d.settings === null) return false;
 
   return true;
@@ -130,6 +134,7 @@ export function getBackupSummary(data: BackupData): string {
   const medicationCount = data.medicationReminders?.length || 0;
   const sleepCount = data.sleepRecords?.length || 0;
   const allergyCount = data.allergyRecords?.length || 0;
+  const milestoneEventCount = data.milestoneEvents?.length || 0;
   const exportDate = formatDateTime(data.exportedAt);
 
   return `备份时间：${exportDate}
@@ -141,5 +146,6 @@ export function getBackupSummary(data: BackupData): string {
 用药提醒：${medicationCount} 个
 睡眠记录：${sleepCount} 条
 过敏记录：${allergyCount} 条
+大事件记录：${milestoneEventCount} 条
 版本：v${data.version}`;
 }

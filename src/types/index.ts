@@ -180,6 +180,7 @@ export interface BackupData {
   medicationReminders: MedicationReminder[];
   sleepRecords: SleepRecord[];
   allergyRecords: AllergyRecord[];
+  milestoneEvents: MilestoneEvent[];
   settings: AppSettings;
 }
 
@@ -300,6 +301,19 @@ export interface AllergyRecord {
   category: AllergyCategory;
   discoveryDate: string;
   reaction: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MilestoneEvent {
+  id: string;
+  childId: string;
+  type: 'vaccine' | 'checkup' | 'custom';
+  title: string;
+  date: string;
+  description?: string;
+  photo?: string;
+  category?: string;
   createdAt: string;
   updatedAt: string;
 }

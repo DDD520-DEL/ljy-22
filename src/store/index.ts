@@ -19,6 +19,7 @@ import type {
   MedicationDoseStatus,
   SleepRecord,
   AllergyRecord,
+  MilestoneEvent,
 } from '@/types';
 import {
   generateVaccineSchedules,
@@ -53,6 +54,7 @@ interface AppState {
   medicationReminders: MedicationReminder[];
   sleepRecords: SleepRecord[];
   allergyRecords: AllergyRecord[];
+  milestoneEvents: MilestoneEvent[];
   settings: AppSettings;
 
   get currentChild(): Child | null;
@@ -99,6 +101,10 @@ interface AppState {
   updateAllergyRecord: (id: string, data: Partial<AllergyRecord>) => void;
   deleteAllergyRecord: (id: string) => void;
 
+  addMilestoneEvent: (event: Omit<MilestoneEvent, 'id' | 'childId' | 'createdAt' | 'updatedAt'>) => void;
+  updateMilestoneEvent: (id: string, data: Partial<MilestoneEvent>) => void;
+  deleteMilestoneEvent: (id: string) => void;
+
   updateSettings: (settings: Partial<AppSettings>) => void;
 
   updateVaccineScheduleStatus: (scheduleId: string, status: VaccineSchedule['status']) => void;
@@ -138,6 +144,7 @@ export const useAppStore = create<AppState>()(
       medicationReminders: [],
       sleepRecords: [],
       allergyRecords: [],
+      milestoneEvents: [],
       settings: initialSettings,
 
       get currentChild() {
@@ -220,6 +227,7 @@ export const useAppStore = create<AppState>()(
           const newMedicationReminders = state.medicationReminders.filter((m) => m.childId !== id);
           const newSleepRecords = state.sleepRecords.filter((r) => r.childId !== id);
           const newAllergyRecords = state.allergyRecords.filter((r) => r.childId !== id);
+          const newMilestoneEvents = state.milestoneEvents.filter((e) => e.childId !== id);
 
           let newCurrentChildId = state.currentChildId;
           if (state.currentChildId === id) {
@@ -241,6 +249,7 @@ export const useAppStore = create<AppState>()(
             medicationReminders: newMedicationReminders,
             sleepRecords: newSleepRecords,
             allergyRecords: newAllergyRecords,
+            milestoneEvents: newMilestoneEvents,
           };
         });
       },
@@ -740,6 +749,39 @@ export const useAppStore = create<AppState>()(
         }));
       },
 
+      addMilestoneEvent: (event) => {
+        const state = get();
+        if (!state.currentChildId) return;
+
+        const now = new Date().toISOString();
+        const newEvent: MilestoneEvent = {
+          ...event,
+          id: generateId(),
+          childId: state.currentChildId,
+          createdAt: now,
+          updatedAt: now,
+        };
+
+        set((state) => ({
+          milestoneEvents: [...state.milestoneEvents, newEvent],
+        }));
+      },
+
+      updateMilestoneEvent: (id, data) => {
+        const now = new Date().toISOString();
+        set((state) => ({
+          milestoneEvents: state.milestoneEvents.map((e) =>
+            e.id === id ? { ...e, ...data, updatedAt: now } : e
+          ),
+        }));
+      },
+
+      deleteMilestoneEvent: (id) => {
+        set((state) => ({
+          milestoneEvents: state.milestoneEvents.filter((e) => e.id !== id),
+        }));
+      },
+
       updateSettings: (settings) => {
         const state = get();
         const newSettings = { ...state.settings, ...settings };
@@ -981,6 +1023,7 @@ export const useAppStore = create<AppState>()(
           medicationReminders: data.medicationReminders || [],
           sleepRecords: data.sleepRecords || [],
           allergyRecords: data.allergyRecords || [],
+          milestoneEvents: data.milestoneEvents || [],
           settings: data.settings,
         });
         return data;
@@ -1067,6 +1110,10 @@ export const useAppStore = create<AppState>()(
 
         if (!state.allergyRecords) {
           state.allergyRecords = [];
+        }
+
+        if (!state.milestoneEvents) {
+          state.milestoneEvents = [];
         }
         
         return state as AppState;
