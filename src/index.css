@@ -70,6 +70,25 @@ body {
     @apply bg-gradient-to-r from-mint-500 to-coral-500 bg-clip-text text-transparent;
   }
 
+  .highlight-vaccine {
+    @apply ring-4 ring-mint-400 ring-offset-2 ring-offset-white border-mint-400 border-2 animate-highlight-pulse relative;
+  }
+
+  .highlight-vaccine::before {
+    content: '📍 目标疫苗';
+    position: absolute;
+    top: -12px;
+    left: 16px;
+    background: linear-gradient(135deg, #34D399 0%, #10B981 100%);
+    color: white;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 12px;
+    border-radius: 9999px;
+    box-shadow: 0 4px 12px rgba(52, 211, 153, 0.4);
+    z-index: 20;
+  }
+
   .sidebar-link {
     @apply flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 hover:bg-mint-50 
            hover:text-mint-600 transition-all duration-300 font-medium;

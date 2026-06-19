@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect, useRef } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   CheckCircle,
   Clock,
@@ -43,6 +43,7 @@ const ALLERGY_CATEGORY_CONFIG: Record<string, { icon: typeof Apple; color: strin
 
 export default function VaccineSchedulePage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const {
     children,
     currentChildId,
@@ -84,11 +85,48 @@ export default function VaccineSchedulePage() {
     reason: '生病',
   });
 
+  const [highlightVaccineCode, setHighlightVaccineCode] = useState<string | null>(null);
+  const [highlightInfo, setHighlightInfo] = useState<{ name: string; doses: number } | null>(null);
+  const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
   const commonReasons = ['生病', '发热', '腹泻', '湿疹', '用药中', '其他原因'];
 
   useEffect(() => {
     if (!child) navigate('/child-info');
   }, [child, navigate]);
+
+  useEffect(() => {
+    const state = location.state as { highlightVaccineCode?: string } | null;
+    const code = state?.highlightVaccineCode;
+    if (!code) return;
+
+    const matchingSchedules = currentVaccineSchedules.filter((s) => s.vaccineCode === code);
+    if (matchingSchedules.length === 0) return;
+
+    const vaccineName = matchingSchedules[0].vaccineName;
+    setHighlightInfo({ name: vaccineName, doses: matchingSchedules.length });
+    setHighlightVaccineCode(code);
+    setFilter('all');
+    setCategory('all');
+
+    const handle = setTimeout(() => {
+      const firstSchedule = matchingSchedules.sort((a, b) => a.doseNumber - b.doseNumber)[0];
+      const element = cardRefs.current[firstSchedule.id];
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 400);
+
+    const clearHandle = setTimeout(() => {
+      setHighlightVaccineCode(null);
+      setHighlightInfo(null);
+    }, 10000);
+
+    return () => {
+      clearTimeout(handle);
+      clearTimeout(clearHandle);
+    };
+  }, [location.state, currentVaccineSchedules]);
 
   if (!child) return null;
 
@@ -218,6 +256,23 @@ export default function VaccineSchedulePage() {
           <p className="text-slate-500 mt-1">
             按照国家免疫规划自动生成，共 {currentVaccineSchedules.length} 剂次
           </p>
+          {highlightInfo && (
+            <div className="mt-3 inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-mint-100 to-coral-100 rounded-xl border border-mint-200 animate-fade-in">
+              <span className="text-lg">🎯</span>
+              <span className="text-sm font-medium text-slate-700">
+                已定位到 <strong className="text-mint-600">{highlightInfo.name}</strong>（共 {highlightInfo.doses} 剂），10 秒后取消高亮
+              </span>
+              <button
+                onClick={() => {
+                  setHighlightVaccineCode(null);
+                  setHighlightInfo(null);
+                }}
+                className="ml-2 text-xs text-slate-500 hover:text-slate-700 px-2 py-0.5 rounded-lg hover:bg-white/60 transition-colors"
+              >
+                取消高亮
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="flex flex-wrap gap-3">
@@ -299,10 +354,14 @@ export default function VaccineSchedulePage() {
             const config = getStatusConfig(schedule);
             const StatusIcon = config.icon;
             const record = getRecordForSchedule(schedule.id);
+            const isHighlighted = highlightVaccineCode === schedule.vaccineCode;
 
             return (
               <div
                 key={schedule.id}
+                ref={(el) => {
+                  cardRefs.current[schedule.id] = el;
+                }}
                 className={`relative pl-16 md:pl-24 animate-fade-in-up`}
                 style={{ animationDelay: `${index * 50}ms` }}
               >
@@ -320,7 +379,11 @@ export default function VaccineSchedulePage() {
                   <StatusIcon className="w-4 h-4 text-white" />
                 </div>
 
-                <div className={`card card-hover border-l-4 ${config.bg} ${schedule.isAdjusted ? 'relative ring-2 ring-amber-300 ring-offset-2' : ''}`}>
+                <div
+                  className={`card card-hover border-l-4 ${config.bg} ${
+                    schedule.isAdjusted ? 'relative ring-2 ring-amber-300 ring-offset-2' : ''
+                  } ${isHighlighted ? 'highlight-vaccine' : ''}`}
+                >
                   {schedule.isAdjusted && (
                     <div className="absolute -top-2 -right-2 flex items-center gap-1 px-2 py-1 bg-gradient-to-r from-amber-400 to-orange-400 text-white text-xs font-bold rounded-full shadow-md z-10">
                       <Sparkles className="w-3 h-3" />
